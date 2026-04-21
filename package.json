@@ -6,6 +6,7 @@
         "node": ">=24 <25"
     },
    "scripts": {
+    "start:backend:dev": "pnpm --filter @enot-tea/api start:dev",
     "dev": "pnpm -r --parallel dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",

@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: enot-tea-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: enot_tea_dev
+      POSTGRES_USER: enot
+      POSTGRES_PASSWORD: enot-tea-password
+    ports:
+      - "5432:5432"
+    volumes:
+      - enot_tea_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U enot -d enot_tea_dev"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  enot_tea_pgdata:

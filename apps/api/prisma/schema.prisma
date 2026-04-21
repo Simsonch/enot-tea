@@ -1,0 +1,166 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  MANAGER
+  CONSULTANT
+  CUSTOMER
+}
+
+enum OrderStatus {
+  NEW
+  CONFIRMED
+  PACKED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model User {
+  id                   String               @id @default(cuid())
+  email                String               @unique
+  passwordHash         String
+  firstName            String?
+  lastName             String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  changedOrderStatuses OrderStatusHistory[] @relation("OrderStatusChangedBy")
+  roles                UserRole[]
+  orders               Order[]              @relation("OrderCustomer")
+  consultantChats      ChatSession[]        @relation("ChatConsultant")
+  customerChats        ChatSession[]        @relation("ChatCustomer")
+  chatMessages         ChatMessage[]
+}
+
+model UserRole {
+  id        String   @id @default(cuid())
+  userId    String
+  role      Role
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@index([role])
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  sku         String   @unique
+  name        String
+  description String?
+  priceMinor  Int
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  inventoryItem InventoryItem?
+  orderItems    OrderItem[]
+}
+
+model InventoryItem {
+  id        String   @id @default(cuid())
+  productId String   @unique
+  onHand    Int      @default(0)
+  reserved  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product   Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  movements StockMovement[]
+}
+
+model StockMovement {
+  id              String   @id @default(cuid())
+  inventoryItemId String
+  deltaOnHand     Int      @default(0)
+  deltaReserved   Int      @default(0)
+  reason          String
+  createdAt       DateTime @default(now())
+
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+
+  @@index([inventoryItemId, createdAt])
+}
+
+model Order {
+  id         String      @id @default(cuid())
+  customerId String
+  status     OrderStatus @default(NEW)
+  totalMinor Int
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  customer      User                 @relation("OrderCustomer", fields: [customerId], references: [id], onDelete: Restrict)
+  items         OrderItem[]
+  statusHistory OrderStatusHistory[]
+
+  @@index([status, createdAt])
+  @@index([customerId, createdAt])
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  orderId    String
+  productId  String
+  quantity   Int
+  priceMinor Int
+  totalMinor Int
+  createdAt  DateTime @default(now())
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model OrderStatusHistory {
+  id          String       @id @default(cuid())
+  orderId     String
+  fromStatus  OrderStatus?
+  toStatus    OrderStatus
+  changedById String?
+  comment     String?
+  createdAt   DateTime     @default(now())
+
+  order     Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  changedBy User? @relation("OrderStatusChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+
+  @@index([orderId, createdAt])
+}
+
+model ChatSession {
+  id           String    @id @default(cuid())
+  customerId   String
+  consultantId String?
+  createdAt    DateTime  @default(now())
+  closedAt     DateTime?
+
+  customer   User          @relation("ChatCustomer", fields: [customerId], references: [id], onDelete: Restrict)
+  consultant User?         @relation("ChatConsultant", fields: [consultantId], references: [id], onDelete: SetNull)
+  messages   ChatMessage[]
+
+  @@index([customerId, createdAt])
+  @@index([consultantId, createdAt])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  sessionId String
+  senderId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sender  User        @relation(fields: [senderId], references: [id], onDelete: Restrict)
+
+  @@index([sessionId, createdAt])
+}

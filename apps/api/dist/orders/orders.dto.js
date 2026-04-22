@@ -14,13 +14,13 @@ export class CreateOrderItemDto {
     quantity;
 }
 __decorate([
-    IsString(),
-    IsNotEmpty(),
+    IsString({ message: 'productId должен быть строкой.' }),
+    IsNotEmpty({ message: 'Укажите идентификатор товара (productId).' }),
     __metadata("design:type", String)
 ], CreateOrderItemDto.prototype, "productId", void 0);
 __decorate([
-    IsInt(),
-    Min(1),
+    IsInt({ message: 'Количество должно быть целым числом.' }),
+    Min(1, { message: 'Количество должно быть не меньше 1.' }),
     __metadata("design:type", Number)
 ], CreateOrderItemDto.prototype, "quantity", void 0);
 export class CreateOrderDto {
@@ -28,13 +28,13 @@ export class CreateOrderDto {
     items;
 }
 __decorate([
-    IsString(),
-    IsNotEmpty(),
+    IsString({ message: 'customerId должен быть строкой.' }),
+    IsNotEmpty({ message: 'Укажите идентификатор покупателя (customerId).' }),
     __metadata("design:type", String)
 ], CreateOrderDto.prototype, "customerId", void 0);
 __decorate([
-    IsArray(),
-    ArrayMinSize(1),
+    IsArray({ message: 'Список позиций (items) должен быть массивом.' }),
+    ArrayMinSize(1, { message: 'Добавьте хотя бы одну позицию в заказ (items).' }),
     ValidateNested({ each: true }),
     Type(() => CreateOrderItemDto),
     __metadata("design:type", Array)

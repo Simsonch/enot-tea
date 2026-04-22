@@ -102,4 +102,44 @@ test('OrdersService.getById возвращает NotFound, если заказ �
         return error instanceof NotFoundException;
     });
 });
+test('OrdersService.create: ConflictException с кодом и деталями при нехватке остатка', async () => {
+    const productId = 'product-1';
+    const customerId = 'customer-1';
+    const tx = {
+        user: {
+            findUnique: async () => ({ id: customerId }),
+        },
+        product: {
+            findMany: async () => [{ id: productId, priceMinor: 100 }],
+        },
+        inventoryItem: {
+            findMany: async () => [
+                { productId, onHand: 3, reserved: 2 },
+            ],
+            update: async () => ({}),
+        },
+        order: {
+            create: async () => {
+                throw new Error('create не должен вызываться при нехватке остатка');
+            },
+        },
+    };
+    const prisma = {
+        $transaction: async (fn) => fn(tx),
+    };
+    const service = new OrdersService(prisma);
+    await assert.rejects(() => service.create({
+        customerId,
+        items: [{ productId, quantity: 2 }],
+    }), (error) => {
+        assert.ok(error instanceof ConflictException);
+        const body = error.getResponse();
+        assert.equal(body.code, 'INSUFFICIENT_STOCK');
+        assert.equal(typeof body.message, 'string');
+        assert.equal(body.details?.productId, productId);
+        assert.equal(body.details?.requested, 2);
+        assert.equal(body.details?.available, 1);
+        return true;
+    });
+});
 //# sourceMappingURL=orders.service.test.js.map

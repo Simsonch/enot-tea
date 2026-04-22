@@ -7,7 +7,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-import { ConflictException, Injectable, NotFoundException, } from '@nestjs/common';
+import { ConflictException, HttpStatus, Injectable, NotFoundException, } from '@nestjs/common';
 import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {} from './orders.dto.js';
@@ -51,7 +51,16 @@ let OrdersService = class OrdersService {
                 }
                 const available = stock.onHand - stock.reserved;
                 if (available < requested.quantity) {
-                    throw new ConflictException(`Недостаточно остатков для товара productId=${requested.productId}.`);
+                    throw new ConflictException({
+                        statusCode: HttpStatus.CONFLICT,
+                        code: 'INSUFFICIENT_STOCK',
+                        message: 'Недостаточно товара на складе для выбранного количества.',
+                        details: {
+                            productId: requested.productId,
+                            requested: requested.quantity,
+                            available,
+                        },
+                    });
                 }
                 totalMinor += product.priceMinor * requested.quantity;
             }

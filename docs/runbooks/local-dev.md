@@ -71,7 +71,7 @@
 ### Базовые команды
 - `pnpm --filter "@enot-tea/api" typecheck`
 - `pnpm --filter "@enot-tea/api" build`
-- `pnpm --filter "@enot-tea/api" start:dev`
+- `pnpm start:back:dev`
 - `pnpm --filter "@enot-tea/api" db:generate`
 - `pnpm --filter "@enot-tea/api" db:migrate -- --name <name>`
 - `pnpm --filter "@enot-tea/api" db:studio`
@@ -103,8 +103,10 @@
 ## Основные команды
 - `pnpm install` — установить зависимости всего workspace.
 - `pnpm -r list --depth -1` — проверить, что пакеты workspace обнаружены.
+- `pnpm start:back:dev` — запустить backend в watch-режиме.
 - `pnpm --filter "@enot-tea/api" db:generate` — сгенерировать Prisma Client.
 - `pnpm --filter "@enot-tea/api" typecheck` — проверка типов API.
+- `pnpm --filter "@enot-tea/api" test` — запуск unit-тестов API.
 - `pnpm --filter "@enot-tea/api" build` — сборка API.
 
 ## Типовые проблемы
@@ -186,9 +188,21 @@
 - [x] Реализован `GET /orders/:id` (получение заказа с `items` и `statusHistory`).
 - [x] Реализован `PATCH /orders/:id/cancel` (отмена заказа с учетом допустимых статусов).
 - [x] Проверка и обновление остатков выполняются безопасно (транзакционно), включая снятие резерва при отмене.
-- [ ] Ошибки валидации и нехватки остатков возвращаются в понятном формате.
-- [ ] Пройдены `typecheck`, `build`, тесты и `prisma validate`.
-- [ ] Runbook отражает фактические команды и шаги проверки.
+- [x] Ошибки валидации и нехватки остатков возвращаются в понятном формате.
+- [x] Пройдены `typecheck` и тесты API.
+- [ ] Пройдены `build` и `prisma validate`.
+- [x] Runbook отражает фактические команды и шаги проверки.
+
+## Короткий changelog по фиче
+- API возвращает структурированную ошибку валидации `VALIDATION_ERROR` (`400`) с полями `code`, `message`, `errors[]`.
+- API возвращает структурированную ошибку нехватки остатка `INSUFFICIENT_STOCK` (`409`) с полями `code`, `message`, `details`.
+- Синхронизированы команды запуска backend: root-скрипт `start:back:dev` и runbook используют одно имя.
+- Исправлена опечатка в команде запуска в runbook (удалена лишняя кавычка).
+- Повторная проверка после корректировок: `pnpm --filter @enot-tea/api typecheck` и `pnpm --filter @enot-tea/api test` проходят успешно.
+
+### Ручная проверка контрактов ошибок
+- Ошибка валидации (`400`, `VALIDATION_ERROR`): отправить `POST /orders` с пустым `customerId` или некорректным `items`.
+- Ошибка нехватки остатков (`409`, `INSUFFICIENT_STOCK`): отправить `POST /orders` с `quantity`, превышающим `available` остаток.
 
 ### Troubleshooting (monorepo + pnpm)
 - Проблема: `No projects matched the filters`.

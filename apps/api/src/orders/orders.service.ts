@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  HttpStatus,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -58,9 +59,16 @@ export class OrdersService {
 
         const available = stock.onHand - stock.reserved;
         if (available < requested.quantity) {
-          throw new ConflictException(
-            `Недостаточно остатков для товара productId=${requested.productId}.`,
-          );
+          throw new ConflictException({
+            statusCode: HttpStatus.CONFLICT,
+            code: 'INSUFFICIENT_STOCK',
+            message: 'Недостаточно товара на складе для выбранного количества.',
+            details: {
+              productId: requested.productId,
+              requested: requested.quantity,
+              available,
+            },
+          });
         }
 
         totalMinor += product.priceMinor * requested.quantity;

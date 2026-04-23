@@ -10,9 +10,9 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Patch, Post, } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Param, Patch, Post, } from '@nestjs/common';
 import { OrdersService } from './orders.service.js';
-import { CreateOrderDto } from './orders.dto.js';
+import { CreateOrderDto, UpdateOrderStatusDto } from './orders.dto.js';
 let OrdersController = class OrdersController {
     ordersService;
     constructor(ordersService) {
@@ -26,6 +26,9 @@ let OrdersController = class OrdersController {
     }
     cancel(id) {
         return this.ordersService.cancel(id);
+    }
+    updateStatus(id, dto) {
+        return this.ordersService.updateStatus(id, dto);
     }
 };
 __decorate([
@@ -50,8 +53,17 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], OrdersController.prototype, "cancel", null);
+__decorate([
+    Patch(':id/status'),
+    __param(0, Param('id')),
+    __param(1, Body()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, UpdateOrderStatusDto]),
+    __metadata("design:returntype", void 0)
+], OrdersController.prototype, "updateStatus", null);
 OrdersController = __decorate([
     Controller('orders'),
+    __param(0, Inject(OrdersService)),
     __metadata("design:paramtypes", [OrdersService])
 ], OrdersController);
 export { OrdersController };

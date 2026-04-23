@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   HttpStatus,
   Injectable,
@@ -6,16 +7,25 @@ import {
 } from '@nestjs/common';
 import { OrderStatus, type Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { type CreateOrderDto } from './orders.dto.js';
+import { type CreateOrderDto, type UpdateOrderStatusDto } from './orders.dto.js';
 
 @Injectable()
 export class OrdersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private readonly cancellableStatuses = new Set<OrderStatus>([
-    OrderStatus.NEW,
+  private readonly allowedTransitions = new Map<OrderStatus, Set<OrderStatus>>([
+    [OrderStatus.NEW, new Set([OrderStatus.CONFIRMED, OrderStatus.CANCELLED])],
+    [OrderStatus.CONFIRMED, new Set([OrderStatus.PACKED, OrderStatus.CANCELLED])],
+    [OrderStatus.PACKED, new Set([OrderStatus.SHIPPED, OrderStatus.CANCELLED])],
+    [OrderStatus.SHIPPED, new Set([OrderStatus.DELIVERED])],
+    [OrderStatus.DELIVERED, new Set()],
+    [OrderStatus.CANCELLED, new Set()],
+  ]);
+  private readonly statusEndpointAllowedTargets = new Set<OrderStatus>([
     OrderStatus.CONFIRMED,
     OrderStatus.PACKED,
+    OrderStatus.SHIPPED,
+    OrderStatus.DELIVERED,
   ]);
 
   async create(dto: CreateOrderDto) {
@@ -120,67 +130,15 @@ export class OrdersService {
   }
 
   async cancel(orderId: string) {
-    return this.prisma.$transaction(async (tx) => {
-      const order = await tx.order.findUnique({
-        where: { id: orderId },
-        include: {
-          items: {
-            select: {
-              productId: true,
-              quantity: true,
-            },
-          },
-        },
-      });
-
-      if (!order) {
-        throw new NotFoundException(`Заказ orderId=${orderId} не найден.`);
-      }
-
-      if (!this.cancellableStatuses.has(order.status)) {
-        throw new ConflictException(
-          `Заказ orderId=${orderId} нельзя отменить из статуса ${order.status}.`,
-        );
-      }
-
-      for (const item of order.items) {
-        await tx.inventoryItem.update({
-          where: { productId: item.productId },
-          data: {
-            reserved: {
-              decrement: item.quantity,
-            },
-          },
-        });
-      }
-
-      const updatedOrder = await tx.order.update({
-        where: { id: order.id },
-        data: {
-          status: OrderStatus.CANCELLED,
-          statusHistory: {
-            create: {
-              fromStatus: order.status,
-              toStatus: OrderStatus.CANCELLED,
-              comment: 'Отмена заказа',
-            },
-          },
-        },
-        include: {
-          items: {
-            select: {
-              id: true,
-              productId: true,
-              quantity: true,
-              priceMinor: true,
-              totalMinor: true,
-            },
-          },
-        },
-      });
-
-      return updatedOrder;
+    return this.transitionStatus(orderId, {
+      toStatus: OrderStatus.CANCELLED,
+      comment: 'Отмена заказа',
     });
+  }
+
+  async updateStatus(orderId: string, dto: UpdateOrderStatusDto) {
+    this.ensureUpdateStatusPayload(dto);
+    return this.transitionStatus(orderId, dto);
   }
 
   async getById(orderId: string) {
@@ -240,5 +198,215 @@ export class OrdersService {
       productId,
       quantity,
     }));
+  }
+
+  private async transitionStatus(
+    orderId: string,
+    dto: Pick<UpdateOrderStatusDto, 'toStatus' | 'comment'>,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        include: {
+          items: {
+            select: {
+              productId: true,
+              quantity: true,
+            },
+          },
+        },
+      });
+
+      if (!order) {
+        throw new NotFoundException(`Заказ orderId=${orderId} не найден.`);
+      }
+
+      this.ensureTransitionAllowed(order.status, dto.toStatus, order.id);
+      await this.applyInventoryChangesForTransition(
+        tx,
+        order.items,
+        dto.toStatus,
+      );
+
+      return tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: dto.toStatus,
+          statusHistory: {
+            create: {
+              fromStatus: order.status,
+              toStatus: dto.toStatus,
+              comment:
+                dto.comment ??
+                this.getDefaultTransitionComment(order.status, dto.toStatus),
+            },
+          },
+        },
+        include: {
+          items: {
+            select: {
+              id: true,
+              productId: true,
+              quantity: true,
+              priceMinor: true,
+              totalMinor: true,
+            },
+          },
+          statusHistory: {
+            select: {
+              id: true,
+              fromStatus: true,
+              toStatus: true,
+              comment: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+      });
+    });
+  }
+
+  private ensureTransitionAllowed(
+    fromStatus: OrderStatus,
+    toStatus: OrderStatus,
+    orderId: string,
+  ) {
+    const allowed = this.allowedTransitions.get(fromStatus) ?? new Set<OrderStatus>();
+    if (!allowed.has(toStatus)) {
+      throw new ConflictException({
+        statusCode: HttpStatus.CONFLICT,
+        code: 'INVALID_ORDER_STATUS_TRANSITION',
+        message: `Недопустимый переход статуса заказа orderId=${orderId}: ${fromStatus} -> ${toStatus}.`,
+        details: {
+          orderId,
+          fromStatus,
+          toStatus,
+        },
+      });
+    }
+  }
+
+  private async applyInventoryChangesForTransition(
+    tx: Prisma.TransactionClient,
+    items: Array<{ productId: string; quantity: number }>,
+    toStatus: OrderStatus,
+  ) {
+    if (toStatus === OrderStatus.CANCELLED) {
+      await this.decrementReserved(tx, items);
+      return;
+    }
+
+    if (toStatus === OrderStatus.SHIPPED) {
+      await this.shipItems(tx, items);
+    }
+  }
+
+  private async decrementReserved(
+    tx: Prisma.TransactionClient,
+    items: Array<{ productId: string; quantity: number }>,
+  ) {
+    for (const item of items) {
+      const inventory = await tx.inventoryItem.findUnique({
+        where: { productId: item.productId },
+        select: { productId: true, reserved: true },
+      });
+
+      if (!inventory) {
+        throw new NotFoundException(
+          `Остаток для productId=${item.productId} не найден.`,
+        );
+      }
+
+      if (inventory.reserved < item.quantity) {
+        throw new ConflictException({
+          statusCode: HttpStatus.CONFLICT,
+          code: 'INVENTORY_INVARIANT_VIOLATION',
+          message: `Недопустимое состояние резерва для productId=${item.productId}.`,
+          details: {
+            productId: item.productId,
+            reserved: inventory.reserved,
+            requiredToDecrement: item.quantity,
+          },
+        });
+      }
+
+      await tx.inventoryItem.update({
+        where: { productId: item.productId },
+        data: {
+          reserved: {
+            decrement: item.quantity,
+          },
+        },
+      });
+    }
+  }
+
+  private async shipItems(
+    tx: Prisma.TransactionClient,
+    items: Array<{ productId: string; quantity: number }>,
+  ) {
+    for (const item of items) {
+      const inventory = await tx.inventoryItem.findUnique({
+        where: { productId: item.productId },
+        select: { productId: true, onHand: true, reserved: true },
+      });
+
+      if (!inventory) {
+        throw new NotFoundException(
+          `Остаток для productId=${item.productId} не найден.`,
+        );
+      }
+
+      if (
+        inventory.onHand < item.quantity ||
+        inventory.reserved < item.quantity
+      ) {
+        throw new ConflictException({
+          statusCode: HttpStatus.CONFLICT,
+          code: 'INVENTORY_INVARIANT_VIOLATION',
+          message: `Недопустимое состояние склада для отгрузки productId=${item.productId}.`,
+          details: {
+            productId: item.productId,
+            onHand: inventory.onHand,
+            reserved: inventory.reserved,
+            requiredToShip: item.quantity,
+          },
+        });
+      }
+
+      await tx.inventoryItem.update({
+        where: { productId: item.productId },
+        data: {
+          onHand: { decrement: item.quantity },
+          reserved: { decrement: item.quantity },
+        },
+      });
+    }
+  }
+
+  private getDefaultTransitionComment(
+    fromStatus: OrderStatus,
+    toStatus: OrderStatus,
+  ) {
+    return `Смена статуса заказа: ${fromStatus} -> ${toStatus}`;
+  }
+
+  private ensureUpdateStatusPayload(dto: UpdateOrderStatusDto) {
+    if (!dto?.toStatus || !this.statusEndpointAllowedTargets.has(dto.toStatus)) {
+      throw new BadRequestException({
+        statusCode: HttpStatus.BAD_REQUEST,
+        code: 'VALIDATION_ERROR',
+        message: 'Входные данные не прошли проверку.',
+        errors: [
+          {
+            field: 'toStatus',
+            errors: [
+              'toStatus должен быть одним из значений: CONFIRMED, PACKED, SHIPPED, DELIVERED.',
+            ],
+          },
+        ],
+      });
+    }
   }
 }

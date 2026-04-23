@@ -147,6 +147,19 @@
   - `apps/api/prisma/schema.prisma` и миграции в `apps/api/prisma/migrations`,
   - модули `apps/api/src/products/*` и `apps/api/src/orders/*`.
 
+### Статус Sprint 3
+- `In Progress`: цель Sprint 3 — завершить lifecycle заказа после создания/отмены до этапов отгрузки и доставки.
+- Фокус Sprint 3:
+  - `orders`: переходы статусов `CONFIRMED -> PACKED -> SHIPPED -> DELIVERED`;
+  - валидация допустимых переходов и блокировка недопустимых переходов;
+  - `inventory`: при `SHIPPED` обновлять остатки (`decrement onHand` и `decrement reserved`);
+  - аудит переходов в `OrderStatusHistory`;
+  - тесты на happy path, negative cases, `not found` и inventory edge cases.
+- Контрольные артефакты Sprint 3:
+  - `docs/runbooks/local-dev.md` (фактические команды и ручные проверки Sprint 3),
+  - модули `apps/api/src/orders/*`,
+  - при изменениях схемы: `apps/api/prisma/schema.prisma` и миграции в `apps/api/prisma/migrations`.
+
 ### Что нужно утвердить до начала реализации
 - Финальный стек и версии (`apps/api`, `apps/storefront`, `apps/admin`, БД, инструменты).
 - Структуру репозитория и naming-конвенции модулей.
@@ -173,6 +186,14 @@
 - Добавление базовых тестов (happy path + граничный/ошибочный сценарий).
 - Обновление runbook фактическими командами проверки Sprint 2.
 
+### Что войдет в третий технический спринт
+- Реализация endpoint-ов смены статуса заказа для шагов `CONFIRMED`, `PACKED`, `SHIPPED`, `DELIVERED`.
+- Валидация допустимых переходов статусов и запрет недопустимых переходов.
+- Обновление склада при `SHIPPED`: `decrement onHand` и `decrement reserved` в рамках транзакции.
+- Логирование каждого перехода в `OrderStatusHistory` с фиксацией `fromStatus` и `toStatus`.
+- Добавление и актуализация тестов: happy path, negative cases, `not found`, inventory edge cases.
+- Обновление runbook фактическими командами и ручными проверками Sprint 3.
+
 ### Чеклист готовности к старту
 - [x] Цели и scope MVP согласованы.
 - [x] Доменные сущности и статусы заказа зафиксированы.
@@ -194,11 +215,31 @@
 - [x] Пройдены `build` и `prisma validate` (скрипт `db:validate` и команды `apps/api` в этом runbook).
 - [x] Runbook отражает фактические команды и шаги проверки.
 
+### Чеклист готовности к завершению Sprint 3
+- [ ] Реализованы endpoint-ы смены статуса заказа.
+- [ ] Валидируются допустимые переходы статусов.
+- [ ] На `SHIPPED` корректно обновляются `onHand`/`reserved`.
+- [ ] Переходы пишутся в `statusHistory`.
+- [ ] Пройдены `typecheck`/`test`/`build`/`db:validate`.
+- [ ] Runbook обновлен фактическими шагами проверки.
+
 ### Итог Sprint 2
 
 В `apps/api` доставлены read API каталога и сквозной поток заказа: `GET /products` с пагинацией и фильтрами query; `POST /orders`, `GET /orders/:id`, `PATCH /orders/:id/cancel` с позициями и `statusHistory`. Остатки и резервы обновляются в транзакциях: при создании заказа растёт `reserved` и проверяется инвариант по `onHand`/`available`; при отмене снимается резерв. На границе API стабильны ответы об ошибках: `VALIDATION_ERROR` (400) и `INSUFFICIENT_STOCK` (409).
 
 Код и данные: модули [`apps/api/src/products/`](../../apps/api/src/products), [`apps/api/src/orders/`](../../apps/api/src/orders), схема и миграции — [`apps/api/prisma/schema.prisma`](../../apps/api/prisma/schema.prisma), [`apps/api/prisma/migrations/`](../../apps/api/prisma/migrations). Каноничные проверки: `pnpm --filter "@enot-tea/api" typecheck`, `test`, `build`, `db:validate` (из корня репозитория).
+
+### Итог Sprint 3
+
+В `apps/api` доставлены переходы жизненного цикла заказа после создания/отмены до этапов отгрузки и доставки: `CONFIRMED -> PACKED -> SHIPPED -> DELIVERED`, включая API-операции смены статуса и проверку допустимости переходов.
+
+На уровне контрактов и инвариантов гарантируется корректность последовательности переходов, запись аудита в `OrderStatusHistory` и согласованное обновление склада на этапе `SHIPPED` (`decrement onHand` и `decrement reserved`) в транзакции.
+
+Каноничные проверки:
+- `pnpm --filter "@enot-tea/api" typecheck`
+- `pnpm --filter "@enot-tea/api" test`
+- `pnpm --filter "@enot-tea/api" build`
+- `pnpm --filter "@enot-tea/api" db:validate`
 
 ## Короткий changelog по фиче
 - API возвращает структурированную ошибку валидации `VALIDATION_ERROR` (`400`) с полями `code`, `message`, `errors[]`.

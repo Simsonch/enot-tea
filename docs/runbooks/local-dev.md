@@ -75,7 +75,7 @@
 - `pnpm --filter "@enot-tea/api" db:generate`
 - `pnpm --filter "@enot-tea/api" db:migrate -- --name <name>`
 - `pnpm --filter "@enot-tea/api" db:studio`
-- `pnpm --filter "@enot-tea/api" exec prisma validate --schema apps/api/prisma/schema.prisma`
+- `pnpm --filter "@enot-tea/api" db:validate` (валидация `prisma/schema.prisma` через `prisma.config` пакета)
 
 ### Проверка API
 - `GET /` -> `API is running`
@@ -108,6 +108,7 @@
 - `pnpm --filter "@enot-tea/api" typecheck` — проверка типов API.
 - `pnpm --filter "@enot-tea/api" test` — запуск unit-тестов API.
 - `pnpm --filter "@enot-tea/api" build` — сборка API.
+- `pnpm --filter "@enot-tea/api" db:validate` — проверка схемы Prisma.
 
 ## Типовые проблемы
 - Проблема: в runbook есть команда, которой нет в проекте.
@@ -136,7 +137,7 @@
   - `apps/api/.env.example`
 
 ### Статус Sprint 2
-- `In Progress`: backend-ядро MVP в `apps/api` реализуется по шагам и уже включает order flow.
+- `Done`: backend-ядро MVP в `apps/api` (каталог, заказы, резерв/снятие резерва) доставлено; краткое резюме — в разделе **Итог Sprint 2** ниже.
 - Фокус Sprint 2:
   - `products`: чтение каталога товаров с базовой пагинацией (`GET /products`);
   - `orders`: создание, получение и отмена заказа (`POST /orders`, `GET /orders/:id`, `PATCH /orders/:id/cancel`);
@@ -182,7 +183,7 @@
 - [x] Env-шаблон для `apps/api` утвержден (`apps/api/.env.example`).
 
 ### Чеклист готовности к завершению Sprint 2
-- [ ] Репозиторий инициализирован локально (`nvm use`, `pnpm install`, workspace обнаружен).
+- [x] Репозиторий и настройка workspace по разделу [«Настройка»](#настройка) (процедурный критерий для разработчика).
 - [x] Реализован `GET /products` с валидацией query-параметров.
 - [x] Реализован `POST /orders` с валидацией входного payload.
 - [x] Реализован `GET /orders/:id` (получение заказа с `items` и `statusHistory`).
@@ -190,8 +191,14 @@
 - [x] Проверка и обновление остатков выполняются безопасно (транзакционно), включая снятие резерва при отмене.
 - [x] Ошибки валидации и нехватки остатков возвращаются в понятном формате.
 - [x] Пройдены `typecheck` и тесты API.
-- [ ] Пройдены `build` и `prisma validate`.
+- [x] Пройдены `build` и `prisma validate` (скрипт `db:validate` и команды `apps/api` в этом runbook).
 - [x] Runbook отражает фактические команды и шаги проверки.
+
+### Итог Sprint 2
+
+В `apps/api` доставлены read API каталога и сквозной поток заказа: `GET /products` с пагинацией и фильтрами query; `POST /orders`, `GET /orders/:id`, `PATCH /orders/:id/cancel` с позициями и `statusHistory`. Остатки и резервы обновляются в транзакциях: при создании заказа растёт `reserved` и проверяется инвариант по `onHand`/`available`; при отмене снимается резерв. На границе API стабильны ответы об ошибках: `VALIDATION_ERROR` (400) и `INSUFFICIENT_STOCK` (409).
+
+Код и данные: модули [`apps/api/src/products/`](../../apps/api/src/products), [`apps/api/src/orders/`](../../apps/api/src/orders), схема и миграции — [`apps/api/prisma/schema.prisma`](../../apps/api/prisma/schema.prisma), [`apps/api/prisma/migrations/`](../../apps/api/prisma/migrations). Каноничные проверки: `pnpm --filter "@enot-tea/api" typecheck`, `test`, `build`, `db:validate` (из корня репозитория).
 
 ## Короткий changelog по фиче
 - API возвращает структурированную ошибку валидации `VALIDATION_ERROR` (`400`) с полями `code`, `message`, `errors[]`.
@@ -199,6 +206,7 @@
 - Синхронизированы команды запуска backend: root-скрипт `start:back:dev` и runbook используют одно имя.
 - Исправлена опечатка в команде запуска в runbook (удалена лишняя кавычка).
 - Повторная проверка после корректировок: `pnpm --filter @enot-tea/api typecheck` и `pnpm --filter @enot-tea/api test` проходят успешно.
+- В `apps/api` добавлена зависимость `dotenv` для `prisma.config` (и чистого `prisma validate` / `db:validate`); подтверждены `build` и валидация схемы.
 
 ### Ручная проверка контрактов ошибок
 - Ошибка валидации (`400`, `VALIDATION_ERROR`): отправить `POST /orders` с пустым `customerId` или некорректным `items`.

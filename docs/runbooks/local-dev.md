@@ -84,15 +84,22 @@
 - `POST /orders` -> `201` и созданный заказ с позициями
 - `GET /orders/:id` -> `200` и заказ с `items` + `statusHistory`
 - `PATCH /orders/:id/cancel` -> `200` и заказ со статусом `CANCELLED`
+- `PATCH /orders/:id/status` c body `{"toStatus":"CONFIRMED|PACKED|SHIPPED|DELIVERED","comment?":"..."}` -> `200` и обновленный заказ
+- `PATCH /orders/:id/status` c body `{"toStatus":"CANCELLED|NEW"}` -> `400` и `VALIDATION_ERROR` (отмена выполняется только через `PATCH /orders/:id/cancel`)
 - `GET /orders/:id` для несуществующего `id` -> `404`
 - `PATCH /orders/:id/cancel` из неотменяемого статуса -> `409`
+- `PATCH /orders/:id/status` с недопустимым переходом -> `409` и `INVALID_ORDER_STATUS_TRANSITION`
 
 ### Smoke-сценарий заказа
 1. Создать заказ через `POST /orders`.
-2. Получить созданный заказ через `GET /orders/:id`.
-3. Отменить заказ через `PATCH /orders/:id/cancel`.
-4. Повторить отмену того же заказа и убедиться, что API возвращает `409`.
-5. Запросить несуществующий `orderId` и убедиться, что API возвращает `404`.
+2. Перевести заказ в `CONFIRMED` через `PATCH /orders/:id/status`.
+3. Перевести заказ в `PACKED` через `PATCH /orders/:id/status`.
+4. Перевести заказ в `SHIPPED` через `PATCH /orders/:id/status` и проверить изменения `onHand`/`reserved`.
+5. Перевести заказ в `DELIVERED` через `PATCH /orders/:id/status`.
+6. Проверить в `GET /orders/:id`, что в `statusHistory` есть последовательность переходов.
+7. Проверить недопустимый переход (например, `CONFIRMED -> SHIPPED`) и убедиться, что API возвращает `409`.
+8. Создать отдельный заказ и отменить через `PATCH /orders/:id/cancel`, затем повторить отмену и убедиться, что API возвращает `409`.
+9. Запросить несуществующий `orderId` и убедиться, что API возвращает `404`.
 
 ### Примечания
 - `pnpm --filter "@enot-tea/api" db:pull` применяйте для непустой БД (database-first сценарий).
@@ -148,7 +155,7 @@
   - модули `apps/api/src/products/*` и `apps/api/src/orders/*`.
 
 ### Статус Sprint 3
-- `In Progress`: цель Sprint 3 — завершить lifecycle заказа после создания/отмены до этапов отгрузки и доставки.
+- `Done`: lifecycle заказа после создания/отмены до этапов отгрузки и доставки доставлен.
 - Фокус Sprint 3:
   - `orders`: переходы статусов `CONFIRMED -> PACKED -> SHIPPED -> DELIVERED`;
   - валидация допустимых переходов и блокировка недопустимых переходов;
@@ -157,6 +164,7 @@
   - тесты на happy path, negative cases, `not found` и inventory edge cases.
 - Контрольные артефакты Sprint 3:
   - `docs/runbooks/local-dev.md` (фактические команды и ручные проверки Sprint 3),
+  - `docs/architecture/order-status-lifecycle-sprint3.md` (матрица переходов и API-контракт),
   - модули `apps/api/src/orders/*`,
   - при изменениях схемы: `apps/api/prisma/schema.prisma` и миграции в `apps/api/prisma/migrations`.
 
@@ -216,12 +224,12 @@
 - [x] Runbook отражает фактические команды и шаги проверки.
 
 ### Чеклист готовности к завершению Sprint 3
-- [ ] Реализованы endpoint-ы смены статуса заказа.
-- [ ] Валидируются допустимые переходы статусов.
-- [ ] На `SHIPPED` корректно обновляются `onHand`/`reserved`.
-- [ ] Переходы пишутся в `statusHistory`.
-- [ ] Пройдены `typecheck`/`test`/`build`/`db:validate`.
-- [ ] Runbook обновлен фактическими шагами проверки.
+- [x] Реализованы endpoint-ы смены статуса заказа.
+- [x] Валидируются допустимые переходы статусов.
+- [x] На `SHIPPED` корректно обновляются `onHand`/`reserved`.
+- [x] Переходы пишутся в `statusHistory`.
+- [x] Пройдены `typecheck`/`test`/`build`/`db:validate`.
+- [x] Runbook обновлен фактическими шагами проверки.
 
 ### Итог Sprint 2
 
@@ -231,7 +239,7 @@
 
 ### Итог Sprint 3
 
-В `apps/api` доставлены переходы жизненного цикла заказа после создания/отмены до этапов отгрузки и доставки: `CONFIRMED -> PACKED -> SHIPPED -> DELIVERED`, включая API-операции смены статуса и проверку допустимости переходов.
+В `apps/api` доставлен lifecycle заказа после создания/отмены до этапов отгрузки и доставки: `CONFIRMED -> PACKED -> SHIPPED -> DELIVERED`, включая API-операции смены статуса и проверку допустимости переходов.
 
 На уровне контрактов и инвариантов гарантируется корректность последовательности переходов, запись аудита в `OrderStatusHistory` и согласованное обновление склада на этапе `SHIPPED` (`decrement onHand` и `decrement reserved`) в транзакции.
 
@@ -240,6 +248,17 @@
 - `pnpm --filter "@enot-tea/api" test`
 - `pnpm --filter "@enot-tea/api" build`
 - `pnpm --filter "@enot-tea/api" db:validate`
+
+### Проверено в Sprint 3
+- Команды проверки:
+  - `pnpm --filter "@enot-tea/api" typecheck` — пройдено успешно.
+  - `pnpm --filter "@enot-tea/api" test` — пройдено успешно.
+  - `pnpm --filter "@enot-tea/api" build` — пройдено успешно.
+  - `pnpm --filter "@enot-tea/api" db:validate` — пройдено успешно.
+- Сводка тестов:
+  - service tests: `10` (`apps/api/src/orders/orders.service.test.ts`);
+  - HTTP contract tests: `5` (`apps/api/src/orders/orders.controller.http.test.ts`);
+  - common validation tests: `1` (`apps/api/src/common/validation-error-format.test.ts`).
 
 ## Короткий changelog по фиче
 - API возвращает структурированную ошибку валидации `VALIDATION_ERROR` (`400`) с полями `code`, `message`, `errors[]`.
@@ -252,6 +271,8 @@
 ### Ручная проверка контрактов ошибок
 - Ошибка валидации (`400`, `VALIDATION_ERROR`): отправить `POST /orders` с пустым `customerId` или некорректным `items`.
 - Ошибка нехватки остатков (`409`, `INSUFFICIENT_STOCK`): отправить `POST /orders` с `quantity`, превышающим `available` остаток.
+- Ошибка недопустимого перехода (`409`, `INVALID_ORDER_STATUS_TRANSITION`): отправить `PATCH /orders/:id/status` с переходом, который не разрешен текущим `status` заказа (например, `CONFIRMED -> SHIPPED`).
+- Ошибка инварианта склада (`409`, `INVENTORY_INVARIANT_VIOLATION`): выполнить `PATCH /orders/:id/status` в `SHIPPED` при состоянии остатков, где `onHand < quantity` или `reserved < quantity`.
 
 ### Troubleshooting (monorepo + pnpm)
 - Проблема: `No projects matched the filters`.

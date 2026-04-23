@@ -1,13 +1,17 @@
 import {
   ArrayMinSize,
   IsArray,
+  IsIn,
   IsInt,
   IsNotEmpty,
+  IsOptional,
   IsString,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { OrderStatus } from '@prisma/client';
 
 export class CreateOrderItemDto {
   @IsString({ message: 'productId должен быть строкой.' })
@@ -29,4 +33,21 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
   items!: CreateOrderItemDto[];
+}
+
+export class UpdateOrderStatusDto {
+  @IsIn(
+    [OrderStatus.CONFIRMED, OrderStatus.PACKED, OrderStatus.SHIPPED, OrderStatus.DELIVERED],
+    {
+      message:
+        'toStatus должен быть одним из значений: CONFIRMED, PACKED, SHIPPED, DELIVERED.',
+    },
+  )
+  toStatus!: OrderStatus;
+
+  @IsOptional()
+  @IsString({ message: 'comment должен быть строкой.' })
+  @IsNotEmpty({ message: 'comment не должен быть пустым.' })
+  @MaxLength(500, { message: 'comment не должен превышать 500 символов.' })
+  comment?: string;
 }

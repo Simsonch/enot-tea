@@ -7,8 +7,9 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-import { ArrayMinSize, IsArray, IsInt, IsNotEmpty, IsString, Min, ValidateNested, } from 'class-validator';
+import { ArrayMinSize, IsArray, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min, ValidateNested, } from 'class-validator';
 import { Type } from 'class-transformer';
+import { OrderStatus } from '@prisma/client';
 export class CreateOrderItemDto {
     productId;
     quantity;
@@ -39,4 +40,21 @@ __decorate([
     Type(() => CreateOrderItemDto),
     __metadata("design:type", Array)
 ], CreateOrderDto.prototype, "items", void 0);
+export class UpdateOrderStatusDto {
+    toStatus;
+    comment;
+}
+__decorate([
+    IsIn([OrderStatus.CONFIRMED, OrderStatus.PACKED, OrderStatus.SHIPPED, OrderStatus.DELIVERED], {
+        message: 'toStatus должен быть одним из значений: CONFIRMED, PACKED, SHIPPED, DELIVERED.',
+    }),
+    __metadata("design:type", String)
+], UpdateOrderStatusDto.prototype, "toStatus", void 0);
+__decorate([
+    IsOptional(),
+    IsString({ message: 'comment должен быть строкой.' }),
+    IsNotEmpty({ message: 'comment не должен быть пустым.' }),
+    MaxLength(500, { message: 'comment не должен превышать 500 символов.' }),
+    __metadata("design:type", String)
+], UpdateOrderStatusDto.prototype, "comment", void 0);
 //# sourceMappingURL=orders.dto.js.map

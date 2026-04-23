@@ -15,6 +15,7 @@ test('OrdersService.cancel снимает резерв и переводит з�
             update: async (args) => args,
         },
         inventoryItem: {
+            findUnique: async () => ({ productId: 'product-1', reserved: 2 }),
             update: async (args) => {
                 updates.push(args);
                 return {};
@@ -32,6 +33,7 @@ test('OrdersService.cancel снимает резерв и переводит з�
         data: { reserved: { decrement: 2 } },
     });
     assert.equal(result.data.status, OrderStatus.CANCELLED);
+    assert.equal(result.data.statusHistory.create.toStatus, OrderStatus.CANCELLED);
 });
 test('OrdersService.cancel возвращает конфликт для неотменяемого статуса', async () => {
     const tx = {
@@ -43,6 +45,7 @@ test('OrdersService.cancel возвращает конфликт для неот
             }),
         },
         inventoryItem: {
+            findUnique: async () => ({ productId: 'product-1', reserved: 1 }),
             update: async () => ({}),
         },
     };
@@ -51,7 +54,11 @@ test('OrdersService.cancel возвращает конфликт для неот
     };
     const service = new OrdersService(prisma);
     await assert.rejects(() => service.cancel('order-2'), (error) => {
-        return error instanceof ConflictException;
+        if (!(error instanceof ConflictException)) {
+            return false;
+        }
+        const body = error.getResponse();
+        return body.code === 'INVALID_ORDER_STATUS_TRANSITION';
     });
 });
 test('OrdersService.cancel возвращает NotFound, если заказ не существует', async () => {
@@ -60,6 +67,7 @@ test('OrdersService.cancel возвращает NotFound, если заказ н
             findUnique: async () => null,
         },
         inventoryItem: {
+            findUnique: async () => ({ productId: 'product-1', reserved: 1 }),
             update: async () => ({}),
         },
     };
@@ -141,5 +149,117 @@ test('OrdersService.create: ConflictException с кодом и деталями 
         assert.equal(body.details?.available, 1);
         return true;
     });
+});
+test('OrdersService.updateStatus выполняет переход PACKED -> SHIPPED и обновляет склад', async () => {
+    const inventoryUpdates = [];
+    const tx = {
+        order: {
+            findUnique: async () => ({
+                id: 'order-10',
+                status: OrderStatus.PACKED,
+                items: [{ productId: 'product-1', quantity: 2 }],
+            }),
+            update: async (args) => args,
+        },
+        inventoryItem: {
+            findUnique: async () => ({ productId: 'product-1', onHand: 5, reserved: 2 }),
+            update: async (args) => {
+                inventoryUpdates.push(args);
+                return {};
+            },
+        },
+    };
+    const prisma = {
+        $transaction: async (fn) => fn(tx),
+    };
+    const service = new OrdersService(prisma);
+    const result = (await service.updateStatus('order-10', {
+        toStatus: OrderStatus.SHIPPED,
+    }));
+    assert.equal(inventoryUpdates.length, 1);
+    assert.deepEqual(inventoryUpdates[0], {
+        where: { productId: 'product-1' },
+        data: {
+            onHand: { decrement: 2 },
+            reserved: { decrement: 2 },
+        },
+    });
+    assert.equal(result.data.status, OrderStatus.SHIPPED);
+    assert.equal(result.data.statusHistory.create.fromStatus, OrderStatus.PACKED);
+    assert.equal(result.data.statusHistory.create.toStatus, OrderStatus.SHIPPED);
+});
+test('OrdersService.updateStatus возвращает конфликт при недопустимом переходе', async () => {
+    const tx = {
+        order: {
+            findUnique: async () => ({
+                id: 'order-11',
+                status: OrderStatus.CONFIRMED,
+                items: [{ productId: 'product-1', quantity: 1 }],
+            }),
+        },
+        inventoryItem: {
+            findUnique: async () => ({ productId: 'product-1', onHand: 5, reserved: 5 }),
+            update: async () => ({}),
+        },
+    };
+    const prisma = {
+        $transaction: async (fn) => fn(tx),
+    };
+    const service = new OrdersService(prisma);
+    await assert.rejects(() => service.updateStatus('order-11', {
+        toStatus: OrderStatus.SHIPPED,
+    }), (error) => {
+        if (!(error instanceof ConflictException)) {
+            return false;
+        }
+        const body = error.getResponse();
+        return body.code === 'INVALID_ORDER_STATUS_TRANSITION';
+    });
+});
+test('OrdersService.updateStatus возвращает конфликт при нарушении инварианта склада на SHIPPED', async () => {
+    const tx = {
+        order: {
+            findUnique: async () => ({
+                id: 'order-12',
+                status: OrderStatus.PACKED,
+                items: [{ productId: 'product-1', quantity: 3 }],
+            }),
+        },
+        inventoryItem: {
+            findUnique: async () => ({ productId: 'product-1', onHand: 2, reserved: 3 }),
+            update: async () => ({}),
+        },
+    };
+    const prisma = {
+        $transaction: async (fn) => fn(tx),
+    };
+    const service = new OrdersService(prisma);
+    await assert.rejects(() => service.updateStatus('order-12', {
+        toStatus: OrderStatus.SHIPPED,
+    }), (error) => {
+        if (!(error instanceof ConflictException)) {
+            return false;
+        }
+        const body = error.getResponse();
+        return body.code === 'INVENTORY_INVARIANT_VIOLATION';
+    });
+});
+test('OrdersService.updateStatus возвращает NotFound для несуществующего заказа', async () => {
+    const tx = {
+        order: {
+            findUnique: async () => null,
+        },
+        inventoryItem: {
+            findUnique: async () => ({ productId: 'product-1', onHand: 5, reserved: 5 }),
+            update: async () => ({}),
+        },
+    };
+    const prisma = {
+        $transaction: async (fn) => fn(tx),
+    };
+    const service = new OrdersService(prisma);
+    await assert.rejects(() => service.updateStatus('missing-order', {
+        toStatus: OrderStatus.PACKED,
+    }), (error) => error instanceof NotFoundException);
 });
 //# sourceMappingURL=orders.service.test.js.map

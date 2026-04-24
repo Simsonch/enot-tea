@@ -19,6 +19,16 @@ Accepted
   - `INVENTORY_INVARIANT_VIOLATION`.
 - Изменения error-contract выполняются только backward-compatible путем (деприкация, переходный период, документирование).
 
+## Enforcement
+- Error-contract должен быть согласован между:
+  - `docs/architecture/orders-api-contract-matrix.md`;
+  - API boundary (`ValidationPipe`, Nest exceptions);
+  - HTTP/service тестами `orders`.
+- Для любого нового доменного `code` обязательны:
+  - описание в contract docs;
+  - минимум один негативный тест на код и HTTP status;
+  - подтверждение отсутствия breaking change для текущих клиентов.
+
 ## Consequences
 - Плюсы:
   - единообразная обработка ошибок клиентами;
@@ -31,3 +41,5 @@ Accepted
 - `docs/architecture/orders-api-contract-matrix.md`
 - `apps/api/src/orders/orders.service.ts`
 - `apps/api/src/common/validation-error-format.ts`
+- `apps/api/src/orders/orders.controller.http.test.ts`
+- `apps/api/src/orders/orders.service.test.ts`

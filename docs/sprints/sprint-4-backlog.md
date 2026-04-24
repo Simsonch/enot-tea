@@ -23,17 +23,22 @@
 
 ## Status
 - [x] `S4-001` выполнена: Sprint 4 plan/backlog зафиксированы в целевых документах.
+- [x] `S4-002` выполнена: `project-overview` синхронизирован с фактическим статусом модулей (`implemented/planned`).
 - [x] `S4-003` выполнена: `local-dev` разделен на актуальный runbook и архив исторических итогов спринтов.
 - [x] `S4-004` выполнена: release-process runbook дополнен gate/checklist/rollback decision points.
 - [x] `S4-005` выполнена: `incident-response` расширен ролями, эскалацией и postmortem-политикой.
 - [x] `S4-006` выполнена: API contract matrix по `orders` синхронизирован с реализацией и тестами.
 - [x] `S4-007` выполнена: усилены HTTP/service тесты `orders` для контрактов `status/cancel`.
+- [x] `S4-008` выполнена: runbook rollback/recovery дополнен app rollback, DB restore и consistency checks.
+- [x] `S4-009` выполнена: test strategy и release-gate test suite зафиксированы.
+- [x] `S4-010` выполнена: ADR по lifecycle и error-contract финализированы и связаны с тестами/контрактной матрицей.
+- [x] `S4-011` выполнена: добавлен onboarding runbook для `storefront/admin` local-dev.
 
 ## Release Gate for Sprint 4 Exit
-- [ ] Все `P0` задачи закрыты.
-- [ ] Пройдены `pnpm --filter "@enot-tea/api" typecheck`, `test`, `build`, `db:validate`.
-- [ ] Документы runbook и ADR связаны ссылками и не конфликтуют по терминологии.
-- [ ] Контракт `orders` задокументирован и подтвержден тестами.
+- [x] Все `P0` задачи закрыты.
+- [x] Пройдены `pnpm --filter "@enot-tea/api" typecheck`, `test`, `build`, `db:validate`.
+- [x] Документы runbook и ADR связаны ссылками и не конфликтуют по терминологии.
+- [x] Контракт `orders` задокументирован и подтвержден тестами.
 
 ## Notes
 - Оценки (S/M/L) не добавляются по текущему решению.

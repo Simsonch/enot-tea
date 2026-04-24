@@ -17,6 +17,16 @@ Accepted
 - Для каждого успешного перехода обязательна запись в `OrderStatusHistory`.
 - На переходе в `SHIPPED` обязательно списывать `onHand` и `reserved` в одной транзакции.
 
+## Enforcement
+- Контракт lifecycle должен оставаться согласованным между:
+  - `docs/architecture/orders-api-contract-matrix.md`;
+  - `apps/api/src/orders/orders.service.ts`;
+  - HTTP/service тестами `orders`.
+- Любое изменение матрицы переходов выполняется только вместе с обновлением:
+  - API contract docs;
+  - тестов (`orders.controller.http.test.ts`, `orders.service.test.ts`);
+  - связанных ADR/документов.
+
 ## Consequences
 - Плюсы:
   - предсказуемое и проверяемое поведение order pipeline;
@@ -29,3 +39,5 @@ Accepted
 - `docs/architecture/order-status-lifecycle-sprint3.md`
 - `docs/architecture/orders-api-contract-matrix.md`
 - `apps/api/src/orders/orders.service.ts`
+- `apps/api/src/orders/orders.controller.http.test.ts`
+- `apps/api/src/orders/orders.service.test.ts`

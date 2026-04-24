@@ -39,7 +39,7 @@
 
 ## Acceptance Checklist
 - [x] `docs/sprints/sprint-4-backlog.md` заполнен и согласован.
-- [ ] `docs/project-overview.md` отражает `implemented/planned` статус модулей.
+- [x] `docs/project-overview.md` отражает `implemented/planned` статус модулей.
 - [x] `docs/runbooks/local-dev.md` разделен на актуальные инструкции и исторические итоги.
 - [x] Добавлен `docs/runbooks/release-process.md`.
 - [x] Обновлен `docs/runbooks/incident-response.md` (roles/escalation/postmortem).

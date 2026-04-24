@@ -30,6 +30,7 @@
 - [x] `S4-007` выполнена: усилены HTTP/service тесты `orders` для контрактов `status/cancel`.
 - [x] `S4-008` выполнена: runbook rollback/recovery дополнен app rollback, DB restore и consistency checks.
 - [x] `S4-009` выполнена: test strategy и release-gate test suite зафиксированы.
+- [x] `S4-010` выполнена: ADR по lifecycle и error-contract финализированы и связаны с тестами/контрактной матрицей.
 
 ## Release Gate for Sprint 4 Exit
 - [ ] Все `P0` задачи закрыты.

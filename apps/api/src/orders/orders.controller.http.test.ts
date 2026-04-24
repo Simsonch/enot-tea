@@ -161,6 +161,30 @@ test('PATCH /orders/:id/status: invalid transition returns 409 INVALID_ORDER_STA
   }
 });
 
+test('PATCH /orders/:id/status: inventory invariant violation returns 409 INVENTORY_INVARIANT_VIOLATION', async () => {
+  const { app } = await createApp({
+    updateStatus: async () => {
+      throw new ConflictException({
+        statusCode: 409,
+        code: 'INVENTORY_INVARIANT_VIOLATION',
+        message: 'Недопустимое состояние склада для отгрузки.',
+      });
+    },
+  });
+
+  try {
+    const response = await request(app.getHttpServer())
+      .patch('/orders/order-1/status')
+      .send({ toStatus: 'SHIPPED' })
+      .expect(409);
+
+    assert.equal(response.body.code, 'INVENTORY_INVARIANT_VIOLATION');
+    assert.equal(response.body.statusCode, 409);
+  } finally {
+    await app.close();
+  }
+});
+
 test('PATCH /orders/:id/status: order not found returns 404', async () => {
   const { app } = await createApp({
     updateStatus: async (id: string) => {
@@ -223,6 +247,30 @@ test('PATCH /orders/:id/cancel: invalid transition returns 409 INVALID_ORDER_STA
       .expect(409);
 
     assert.equal(response.body.code, 'INVALID_ORDER_STATUS_TRANSITION');
+    assert.equal(response.body.statusCode, 409);
+  } finally {
+    await app.close();
+  }
+});
+
+test('PATCH /orders/:id/cancel: reserved invariant violation returns 409 INVENTORY_INVARIANT_VIOLATION', async () => {
+  const { app } = await createApp({
+    cancel: async () => {
+      throw new ConflictException({
+        statusCode: 409,
+        code: 'INVENTORY_INVARIANT_VIOLATION',
+        message: 'Недопустимое состояние резерва.',
+      });
+    },
+  });
+
+  try {
+    const response = await request(app.getHttpServer())
+      .patch('/orders/order-2/cancel')
+      .send()
+      .expect(409);
+
+    assert.equal(response.body.code, 'INVENTORY_INVARIANT_VIOLATION');
     assert.equal(response.body.statusCode, 409);
   } finally {
     await app.close();

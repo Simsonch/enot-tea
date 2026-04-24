@@ -27,6 +27,7 @@
 - [x] `S4-004` выполнена: release-process runbook дополнен gate/checklist/rollback decision points.
 - [x] `S4-005` выполнена: `incident-response` расширен ролями, эскалацией и postmortem-политикой.
 - [x] `S4-006` выполнена: API contract matrix по `orders` синхронизирован с реализацией и тестами.
+- [x] `S4-007` выполнена: усилены HTTP/service тесты `orders` для контрактов `status/cancel`.
 
 ## Release Gate for Sprint 4 Exit
 - [ ] Все `P0` задачи закрыты.

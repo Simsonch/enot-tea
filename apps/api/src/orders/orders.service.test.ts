@@ -239,6 +239,42 @@ test('OrdersService.updateStatus выполняет переход PACKED -> SHI
   assert.equal(result.data.statusHistory.create.toStatus, OrderStatus.SHIPPED);
 });
 
+test('OrdersService.updateStatus выполняет переход CONFIRMED -> PACKED без изменений склада', async () => {
+  let inventoryUpdateCalls = 0;
+
+  const tx = {
+    order: {
+      findUnique: async () => ({
+        id: 'order-14',
+        status: OrderStatus.CONFIRMED,
+        items: [{ productId: 'product-1', quantity: 2 }],
+      }),
+      update: async (args: unknown) => args,
+    },
+    inventoryItem: {
+      findUnique: async () => ({ productId: 'product-1', onHand: 5, reserved: 2 }),
+      update: async () => {
+        inventoryUpdateCalls += 1;
+        return {};
+      },
+    },
+  };
+
+  const prisma = {
+    $transaction: async (fn: (innerTx: typeof tx) => Promise<unknown>) => fn(tx),
+  } as any;
+
+  const service = new OrdersService(prisma);
+  const result = (await service.updateStatus('order-14', {
+    toStatus: OrderStatus.PACKED,
+  })) as any;
+
+  assert.equal(inventoryUpdateCalls, 0);
+  assert.equal(result.data.status, OrderStatus.PACKED);
+  assert.equal(result.data.statusHistory.create.fromStatus, OrderStatus.CONFIRMED);
+  assert.equal(result.data.statusHistory.create.toStatus, OrderStatus.PACKED);
+});
+
 test('OrdersService.updateStatus возвращает 400 VALIDATION_ERROR для toStatus=CANCELLED', async () => {
   const prisma = {
     $transaction: async () => {

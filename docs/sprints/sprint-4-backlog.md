@@ -23,6 +23,7 @@
 
 ## Status
 - [x] `S4-001` выполнена: Sprint 4 plan/backlog зафиксированы в целевых документах.
+- [x] `S4-005` выполнена: `incident-response` расширен ролями, эскалацией и postmortem-политикой.
 
 ## Release Gate for Sprint 4 Exit
 - [ ] Все `P0` задачи закрыты.

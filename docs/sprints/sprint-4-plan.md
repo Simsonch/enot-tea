@@ -47,4 +47,4 @@
 - [x] Добавлен `docs/architecture/orders-api-contract-matrix.md`.
 - [x] Обновлены тесты `apps/api/src/orders/*.test.ts`.
 - [x] Добавлен `docs/testing/test-strategy.md`.
-- [ ] Добавлены ADR по lifecycle и error-contract.
+- [x] Добавлены ADR по lifecycle и error-contract.

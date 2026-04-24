@@ -23,6 +23,7 @@
 
 ## Status
 - [x] `S4-001` выполнена: Sprint 4 plan/backlog зафиксированы в целевых документах.
+- [x] `S4-006` выполнена: API contract matrix по `orders` синхронизирован с реализацией и тестами.
 
 ## Release Gate for Sprint 4 Exit
 - [ ] Все `P0` задачи закрыты.

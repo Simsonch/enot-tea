@@ -21,13 +21,20 @@ Reflect.defineMetadata(
 
 async function createApp(overrides?: {
   updateStatus?: (id: string, dto: { toStatus: OrderStatus; comment?: string }) => Promise<unknown>;
+  cancel?: (id: string) => Promise<unknown>;
 }) {
   let updateStatusCalls = 0;
+  let cancelCalls = 0;
 
   const ordersServiceMock = {
     getById: async () => ({}),
     create: async () => ({}),
-    cancel: async () => ({}),
+    cancel:
+      overrides?.cancel ??
+      (async (id: string) => {
+        cancelCalls += 1;
+        return { id, status: OrderStatus.CANCELLED, items: [], statusHistory: [] };
+      }),
     updateStatus:
       overrides?.updateStatus ??
       (async (id: string, dto: { toStatus: OrderStatus; comment?: string }) => {
@@ -67,6 +74,7 @@ async function createApp(overrides?: {
   return {
     app,
     getUpdateStatusCalls: () => updateStatusCalls,
+    getCancelCalls: () => cancelCalls,
   };
 }
 
@@ -167,6 +175,75 @@ test('PATCH /orders/:id/status: order not found returns 404', async () => {
       .expect(404);
 
     assert.equal(response.body.statusCode, 404);
+  } finally {
+    await app.close();
+  }
+});
+
+test('PATCH /orders/:id/cancel: happy path returns CANCELLED', async () => {
+  const { app } = await createApp({
+    cancel: async (id: string) => ({
+      id,
+      status: OrderStatus.CANCELLED,
+      items: [],
+      statusHistory: [
+        { id: 'h-cancel', fromStatus: OrderStatus.NEW, toStatus: OrderStatus.CANCELLED },
+      ],
+    }),
+  });
+
+  try {
+    const response = await request(app.getHttpServer())
+      .patch('/orders/order-2/cancel')
+      .send()
+      .expect(200);
+
+    assert.equal(response.body.id, 'order-2');
+    assert.equal(response.body.status, 'CANCELLED');
+  } finally {
+    await app.close();
+  }
+});
+
+test('PATCH /orders/:id/cancel: invalid transition returns 409 INVALID_ORDER_STATUS_TRANSITION', async () => {
+  const { app } = await createApp({
+    cancel: async () => {
+      throw new ConflictException({
+        statusCode: 409,
+        code: 'INVALID_ORDER_STATUS_TRANSITION',
+        message: 'Недопустимый переход.',
+      });
+    },
+  });
+
+  try {
+    const response = await request(app.getHttpServer())
+      .patch('/orders/order-2/cancel')
+      .send()
+      .expect(409);
+
+    assert.equal(response.body.code, 'INVALID_ORDER_STATUS_TRANSITION');
+    assert.equal(response.body.statusCode, 409);
+  } finally {
+    await app.close();
+  }
+});
+
+test('PATCH /orders/:id/cancel: order not found returns 404', async () => {
+  const { app, getCancelCalls } = await createApp({
+    cancel: async (id: string) => {
+      throw new NotFoundException(`Заказ orderId=${id} не найден.`);
+    },
+  });
+
+  try {
+    const response = await request(app.getHttpServer())
+      .patch('/orders/missing-order/cancel')
+      .send()
+      .expect(404);
+
+    assert.equal(response.body.statusCode, 404);
+    assert.equal(getCancelCalls(), 0);
   } finally {
     await app.close();
   }

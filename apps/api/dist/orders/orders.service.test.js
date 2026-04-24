@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { OrderStatus } from '@prisma/client';
 import { OrdersService } from './orders.service.js';
 test('OrdersService.cancel снимает резерв и переводит заказ в CANCELLED', async () => {
@@ -188,6 +188,23 @@ test('OrdersService.updateStatus выполняет переход PACKED -> SHI
     assert.equal(result.data.statusHistory.create.fromStatus, OrderStatus.PACKED);
     assert.equal(result.data.statusHistory.create.toStatus, OrderStatus.SHIPPED);
 });
+test('OrdersService.updateStatus возвращает 400 VALIDATION_ERROR для toStatus=CANCELLED', async () => {
+    const prisma = {
+        $transaction: async () => {
+            throw new Error('$transaction не должен вызываться при невалидном payload');
+        },
+    };
+    const service = new OrdersService(prisma);
+    await assert.rejects(() => service.updateStatus('order-11', {
+        toStatus: OrderStatus.CANCELLED,
+    }), (error) => {
+        if (!(error instanceof BadRequestException)) {
+            return false;
+        }
+        const body = error.getResponse();
+        return body.code === 'VALIDATION_ERROR' && body.statusCode === 400;
+    });
+});
 test('OrdersService.updateStatus возвращает конфликт при недопустимом переходе', async () => {
     const tx = {
         order: {
@@ -214,6 +231,32 @@ test('OrdersService.updateStatus возвращает конфликт при н
         }
         const body = error.getResponse();
         return body.code === 'INVALID_ORDER_STATUS_TRANSITION';
+    });
+});
+test('OrdersService.cancel возвращает конфликт при нарушении инварианта reserved', async () => {
+    const tx = {
+        order: {
+            findUnique: async () => ({
+                id: 'order-13',
+                status: OrderStatus.NEW,
+                items: [{ productId: 'product-1', quantity: 2 }],
+            }),
+        },
+        inventoryItem: {
+            findUnique: async () => ({ productId: 'product-1', reserved: 1 }),
+            update: async () => ({}),
+        },
+    };
+    const prisma = {
+        $transaction: async (fn) => fn(tx),
+    };
+    const service = new OrdersService(prisma);
+    await assert.rejects(() => service.cancel('order-13'), (error) => {
+        if (!(error instanceof ConflictException)) {
+            return false;
+        }
+        const body = error.getResponse();
+        return body.code === 'INVENTORY_INVARIANT_VIOLATION';
     });
 });
 test('OrdersService.updateStatus возвращает конфликт при нарушении инварианта склада на SHIPPED', async () => {

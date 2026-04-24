@@ -38,7 +38,7 @@
 - Проверки `typecheck`, `test`, `build`, `db:validate` для `apps/api` проходят.
 
 ## Acceptance Checklist
-- [ ] `docs/sprints/sprint-4-backlog.md` заполнен и согласован.
+- [x] `docs/sprints/sprint-4-backlog.md` заполнен и согласован.
 - [ ] `docs/project-overview.md` отражает `implemented/planned` статус модулей.
 - [ ] `docs/runbooks/local-dev.md` разделен на актуальные инструкции и исторические итоги.
 - [ ] Добавлен `docs/runbooks/release-process.md`.

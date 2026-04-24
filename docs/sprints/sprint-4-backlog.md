@@ -21,6 +21,9 @@
 | S4-010 | P1 | Создать ADR: lifecycle policy и error contract standard | Architect | S4-006 | `docs/adr/0003-order-lifecycle-policy.md`, `docs/adr/0004-api-error-contract-standard.md` |
 | S4-011 | P2 | Подготовить onboarding runbook для storefront/admin local-dev | Frontend Lead | S4-002, S4-003 | `docs/runbooks/local-dev-storefront-admin.md` |
 
+## Status
+- [x] `S4-001` выполнена: Sprint 4 plan/backlog зафиксированы в целевых документах.
+
 ## Release Gate for Sprint 4 Exit
 - [ ] Все `P0` задачи закрыты.
 - [ ] Пройдены `pnpm --filter "@enot-tea/api" typecheck`, `test`, `build`, `db:validate`.

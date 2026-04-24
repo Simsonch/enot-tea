@@ -24,6 +24,7 @@
 ## Status
 - [x] `S4-001` выполнена: Sprint 4 plan/backlog зафиксированы в целевых документах.
 - [x] `S4-003` выполнена: `local-dev` разделен на актуальный runbook и архив исторических итогов спринтов.
+- [x] `S4-004` выполнена: release-process runbook дополнен gate/checklist/rollback decision points.
 
 ## Release Gate for Sprint 4 Exit
 - [ ] Все `P0` задачи закрыты.

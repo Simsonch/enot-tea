@@ -13,41 +13,73 @@
 - QA Owner: подтверждает прохождение release-gate проверок.
 - Incident Commander (on-call): принимает управление при проблемах после релиза.
 
-## Release Gates (Mandatory)
-Запускать из корня репозитория:
+## Release Flow (End-to-End)
+1. **Plan**: зафиксировать scope релиза, окно релиза, ответственных и rollback owner.
+2. **Verify**: пройти обязательные release gates и pre-release checklist.
+3. **Go/No-Go**: провести короткий checkpoint и принять решение о rollout.
+4. **Rollout**: выкатить артефакт и выполнить post-release smoke.
+5. **Observe**: мониторить сервис в окне наблюдения.
+6. **Close**: закрыть релиз или эскалировать инцидент/rollback.
+
+## Release Gates (Mandatory, from repo root)
 - `pnpm --filter "@enot-tea/api" typecheck`
 - `pnpm --filter "@enot-tea/api" test`
 - `pnpm --filter "@enot-tea/api" build`
 - `pnpm --filter "@enot-tea/api" db:validate`
 
-## Pre-release Checklist
-- [ ] Обновлены релевантные docs (`project-overview`, runbooks, контракты API).
+## Entry Criteria (Before Rollout)
+- [ ] Scope релиза и change list зафиксированы.
+- [ ] Назначены Release Owner, Backend Owner, QA Owner.
+- [ ] Обновлены релевантные docs (`project-overview`, runbooks, контракты API) при изменении поведения.
 - [ ] Проверено отсутствие breaking changes в публичных API.
 - [ ] Для изменений поведения обновлены тесты.
 - [ ] Подготовлен rollback plan (версия/коммит, порядок отката, owner).
-- [ ] Уточнен период наблюдения после релиза и ответственные.
+- [ ] Зафиксировано окно наблюдения после релиза и ответственные.
+- [ ] Все команды из Release Gates пройдены успешно.
+
+## Go/No-Go Checkpoint
+Решение `go` принимается, если одновременно выполняются условия:
+- Release Gates пройдены без ошибок.
+- Нет блокирующих дефектов уровня `SEV-1`/`SEV-2`.
+- Rollback plan подтвержден и выполним.
+- Ответственные на окно наблюдения подтверждены.
+
+Иначе решение `no-go`: релиз переносится, фиксируется причина и план корректирующих действий.
 
 ## Rollout Steps
-1. Подтвердить прохождение release gates.
-2. Зафиксировать релизный артефакт (commit/tag/версия).
-3. Выполнить деплой в целевое окружение по стандарту команды.
-4. Запустить post-release smoke:
+1. Зафиксировать релизный артефакт (commit/tag/версия).
+2. Выполнить деплой в целевое окружение по стандарту команды.
+3. Выполнить post-release smoke:
    - `GET /health/db` возвращает `{"status":"ok","db":"up"}`;
    - `GET /products` возвращает `200`;
    - критичный `orders` сценарий не деградировал.
-5. В течение окна наблюдения отслеживать error rate, успешность создания заказов и latency.
+4. Зафиксировать результат smoke в release notes/канале релиза.
 
 ## Rollback Decision Points
-- Немедленный rollback:
-  - недоступен API;
-  - скачок 5xx/ошибок бизнес-контрактов;
-  - деградация критичного заказа (`POST /orders`, `PATCH /orders/:id/status`).
-- Forward-fix допускается только если:
-  - влияние ограничено;
-  - есть быстрый безопасный фикс;
-  - Incident Commander и Release Owner согласовали стратегию.
+### Trigger conditions for immediate rollback
+- API недоступен после rollout.
+- Критичный endpoint (`POST /orders`, `PATCH /orders/:id/status`, `GET /health/db`) стабильно не проходит smoke.
+- Наблюдается устойчивый скачок `5xx` или контрактных бизнес-ошибок, влияющий на оформление/обработку заказов.
+- Подтвержден риск нарушения инвариантов `orders`/`inventory`.
 
-## Post-release
-- Закрыть релиз после окна наблюдения и зафиксировать результат.
-- При инциденте выполнить процесс из `docs/runbooks/incident-response.md`.
-- Для rollback/recovery использовать `docs/runbooks/rollback-and-recovery.md`.
+### When forward-fix is acceptable
+- Влияние ограничено и не затрагивает критичный order flow.
+- Есть безопасный фикс в пределах согласованного короткого окна.
+- Incident Commander и Release Owner явно согласовали стратегию.
+
+Если хотя бы один критерий для forward-fix не выполняется, выбирать rollback.
+
+## Observation Window
+- Минимум 30 минут после rollout для MVP-релиза.
+- Отслеживать:
+  - доступность health endpoint;
+  - error rate (`4xx/5xx`, отдельно контрактные ошибки `orders`);
+  - latency ключевых API;
+  - успешность критичного order flow.
+
+## Exit Criteria
+- Release Gates и post-release smoke пройдены.
+- В окне наблюдения нет деградации критичных сценариев.
+- Решение `release closed` зафиксировано Release Owner.
+- При инциденте запущен процесс из `docs/runbooks/incident-response.md`.
+- Для rollback/recovery используется `docs/runbooks/rollback-and-recovery.md`.

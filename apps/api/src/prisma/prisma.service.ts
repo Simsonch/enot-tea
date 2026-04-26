@@ -1,7 +1,10 @@
 import { Injectable, type OnModuleInit, type OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
-/** When set to `1`, Prisma will not open a real DB connection (e.g. OpenAPI export, metadata-only tests). */
+/**
+ * При значении `1` Prisma не открывает реальное соединение с БД
+ * (экспорт OpenAPI, тесты только метаданных).
+ */
 export const OPENAPI_EXPORT_ENV = 'OPENAPI_EXPORT';
 
 @Injectable()

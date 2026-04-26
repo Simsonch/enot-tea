@@ -13,7 +13,7 @@ export class ProductsController {
   ) {}
 
   @Get()
-  @ApiOperation({ summary: 'List products with pagination' })
+  @ApiOperation({ summary: 'Список товаров с пагинацией' })
   @ApiQuery({ name: 'limit', required: false, type: Number, minimum: 1, maximum: 100 })
   @ApiQuery({ name: 'offset', required: false, type: Number, minimum: 0 })
   @ApiQuery({ name: 'isActive', required: false, type: Boolean })

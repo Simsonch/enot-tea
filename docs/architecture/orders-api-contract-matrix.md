@@ -1,15 +1,15 @@
-# Orders API Contract Matrix
+# Матрица контракта API заказов
 
-## Goal
+## Цель
 Зафиксировать единый контракт по `orders` endpoint-ам: успешные ответы, коды ошибок, бизнес-ограничения и side effects.
 
-## Scope
+## Область
 - API модуля `apps/api` для `orders`.
 - Контракты синхронизированы с реализацией `OrdersService` и текущими HTTP/service тестами.
 - Матрица отражает Sprint 5 / S5-006 release gate из [ADR 0005](../adr/0005-mvp-guest-checkout-order-lifecycle.md): guest checkout snapshot, nullable `customerId`, отдельные `paymentStatus` и `fulfillmentStatus`.
 - ADR 0005 меняет публичный контракт `POST /orders`; это не backward-compatible-only изменение.
 
-## Domain Rules (Canonical)
+## Доменные правила (канон)
 - Ручной MVP lifecycle валидируется как матрица трех статусов:
   - `NEW / PENDING / RESERVED -> CONFIRMED / INVOICE_SENT / RESERVED` (`PATCH /orders/:id/invoice-sent`)
   - `CONFIRMED / INVOICE_SENT / RESERVED -> PACKED / PAID / RESERVED` (`PATCH /orders/:id/payment-confirmed`)
@@ -26,7 +26,7 @@
 - Каноничное списание `onHand` и `reserved` происходит на `PATCH /orders/:id/handoff-to-delivery`; создание заказа только резервирует `reserved`.
 - Новый заказ получает defaults: `status = NEW`, `paymentStatus = PENDING`, `fulfillmentStatus = RESERVED`.
 
-## Endpoints
+## Эндпоинты
 
 ### `POST /orders`
 - Request:
@@ -125,7 +125,7 @@
   - при `SHIPPED`: запись `StockMovement` с `reason = ORDER_SHIP`, отрицательными `deltaOnHand`/`deltaReserved`, в той же транзакции.
   - для каждого успешного перехода создается запись в `OrderStatusHistory` с `statusDimension = ORDER` (`changedById = null` до auth владельца).
 
-## Error Contract Shape
+## Форма контракта ошибок
 - Для validation и business errors используется стабильная JSON-структура:
   - `statusCode`
   - `code`
@@ -139,12 +139,12 @@
   - `INVENTORY_INVARIANT_VIOLATION`
 - `404` сейчас использует стандартную NestJS not-found форму: `statusCode`, `message`, `error`.
 
-## ADR 0005 Contract Notes
+## Примечания к контракту ADR 0005
 - `POST /orders` изменен по ADR 0005: вместо обязательного `customerId` публичный контракт требует snapshot покупателя/доставки и допускает guest checkout без аккаунта.
 - `PATCH /orders/:id/cancel` является каноничным endpoint-ом отмены для Sprint 5 order flow.
 - `PATCH /orders/:id/status` оставлен только как legacy single-status endpoint; он не принимает `CANCELLED` и `NEW`, а отмена выполняется через `cancel` endpoint.
 
-## References
+## Ссылки
 - `docs/adr/0003-order-lifecycle-policy.md`
 - `docs/adr/0005-mvp-guest-checkout-order-lifecycle.md`
 - `docs/adr/0004-api-error-contract-standard.md`

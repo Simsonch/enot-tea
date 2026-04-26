@@ -16,7 +16,7 @@ import { Type } from 'class-transformer';
 import { OrderStatus } from '@prisma/client';
 
 export class CreateOrderItemDto {
-  @ApiProperty({ type: 'string', description: 'Product id from the public catalog.' })
+  @ApiProperty({ type: 'string', description: 'Идентификатор товара из публичного каталога.' })
   @IsString({ message: 'productId должен быть строкой.' })
   @IsNotEmpty({ message: 'Укажите идентификатор товара (productId).' })
   productId!: string;
@@ -30,7 +30,8 @@ export class CreateOrderItemDto {
 export class CreateOrderDto {
   @ApiPropertyOptional({
     type: 'string',
-    description: 'Optional linked customer id for non-guest orders; omit for guest checkout.',
+    description:
+      'Необязательный связанный id покупателя для негостевых заказов; для гостевого checkout не указывайте.',
   })
   @IsOptional()
   @IsString({ message: 'customerId должен быть строкой.' })
@@ -40,7 +41,7 @@ export class CreateOrderDto {
   @ApiProperty({
     type: 'string',
     example: 'Иван Иванов',
-    description: 'Guest/customer name snapshot stored on the order.',
+    description: 'Снимок ФИО гостя/покупателя, хранимый в заказе.',
   })
   @IsString({ message: 'customerFullName должен быть строкой.' })
   @IsNotEmpty({ message: 'Укажите ФИО покупателя (customerFullName).' })
@@ -50,7 +51,7 @@ export class CreateOrderDto {
     type: 'string',
     format: 'email',
     example: 'customer@example.com',
-    description: 'Guest/customer email snapshot stored on the order.',
+    description: 'Снимок email гостя/покупателя, хранимый в заказе.',
   })
   @IsEmail({}, { message: 'customerEmail должен быть корректным email.' })
   @IsNotEmpty({ message: 'Укажите email покупателя (customerEmail).' })
@@ -59,7 +60,7 @@ export class CreateOrderDto {
   @ApiPropertyOptional({
     type: 'string',
     example: '+995 555 010 010',
-    description: 'Optional phone snapshot.',
+    description: 'Необязательный снимок телефона.',
   })
   @IsOptional()
   @IsString({ message: 'customerPhone должен быть строкой.' })
@@ -69,7 +70,7 @@ export class CreateOrderDto {
   @ApiProperty({
     type: 'string',
     example: 'Тбилиси, ул. Руставели, 1',
-    description: 'Shipping address snapshot stored on the order.',
+    description: 'Снимок адреса доставки, хранимый в заказе.',
   })
   @IsString({ message: 'shippingAddress должен быть строкой.' })
   @IsNotEmpty({ message: 'Укажите адрес доставки (shippingAddress).' })
@@ -91,7 +92,7 @@ export class UpdateOrderStatusDto {
       OrderStatus.SHIPPED,
       OrderStatus.DELIVERED,
     ],
-    description: 'Target status; CANCELLED is not allowed (use /cancel).',
+    description: 'Целевой статус; CANCELLED недопустим (используйте /cancel).',
   })
   @IsIn(
     [OrderStatus.CONFIRMED, OrderStatus.PACKED, OrderStatus.SHIPPED, OrderStatus.DELIVERED],

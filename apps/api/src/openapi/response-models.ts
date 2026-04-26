@@ -11,10 +11,10 @@ const orderStatusDimensions = ['ORDER', 'PAYMENT', 'FULFILLMENT'] as const;
 type OrderStatusDimension = (typeof orderStatusDimensions)[number];
 
 export class HealthDbResponseDto {
-  @ApiProperty({ type: 'string', example: 'ok', description: 'Liveness' })
+  @ApiProperty({ type: 'string', example: 'ok', description: 'Проверка жизнеспособности' })
   status!: string;
 
-  @ApiProperty({ type: 'string', example: 'up', description: 'Database' })
+  @ApiProperty({ type: 'string', example: 'up', description: 'База данных' })
   db!: string;
 }
 
@@ -31,7 +31,7 @@ export class ProductListItemDto {
   @ApiPropertyOptional({ nullable: true, type: 'string' })
   description?: string | null;
 
-  @ApiProperty({ type: 'number', example: 1000, description: 'Price in minor units' })
+  @ApiProperty({ type: 'number', example: 1000, description: 'Цена в минорных единицах' })
   priceMinor!: number;
 
   @ApiProperty({ type: 'boolean' })
@@ -110,9 +110,10 @@ export class OrderStatusHistoryEntryDto {
 }
 
 /**
- * `GET /orders/:id` and successful `POST /orders` / `PATCH` responses.
- * Order endpoints load `items` and `statusHistory`, so nullable fields are present
- * as JSON keys even when they do not apply to guest checkout or a history dimension.
+ * Ответы `GET /orders/:id` и успешные `POST /orders` / `PATCH`.
+ * Эндпоинты заказа всегда отдают `items` и `statusHistory`, поэтому в JSON
+ * присутствуют nullable-поля, даже если они не релевантны гостевому checkout
+ * или измерению истории.
  */
 export class OrderResponseDto {
   @ApiProperty({ type: 'string' })
@@ -121,7 +122,7 @@ export class OrderResponseDto {
   @ApiProperty({
     type: 'string',
     nullable: true,
-    description: 'Linked customer id; null for guest checkout orders.',
+    description: 'Связанный id покупателя; null для гостевых заказов.',
   })
   customerId!: string | null;
 

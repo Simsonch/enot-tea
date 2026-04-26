@@ -9,7 +9,7 @@ export class HealthController {
   constructor(private readonly healthService: HealthService) {}
 
   @Get('db')
-  @ApiOperation({ summary: 'Database connectivity' })
+  @ApiOperation({ summary: 'Проверка подключения к БД' })
   @ApiOkResponse({ type: HealthDbResponseDto })
   async db() {
     return this.healthService.checkDb();

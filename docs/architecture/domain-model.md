@@ -1,6 +1,6 @@
 # Модель домена v1 (MVP)
 
-## Retail MVP (Sprint 5+)
+## Ритейл MVP (Sprint 5+)
 
 Описание гостевого checkout, раздельных `Order` / `Payment` / `Fulfillment` статусов и складских инвариантов при резерве и отгрузке: [Guest checkout and MVP lifecycle](guest-checkout-mvp-lifecycle.md), [ADR 0005: MVP guest checkout and order lifecycle](../adr/0005-mvp-guest-checkout-order-lifecycle.md).
 

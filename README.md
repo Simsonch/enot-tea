@@ -1,15 +1,15 @@
 # Enot Tea
 
-Enot Tea is an e-commerce monorepo for a tea storefront and owner-operated order workflow. The implemented backend lives in `apps/api` and exposes catalog, order, inventory, health, OpenAPI, and generated API-client contracts.
+Enot Tea — монорепозиторий электронной коммерции: витрина чая и операционный контур заказов для владельца. Реализованный backend в `apps/api` отдаёт каталог, заказы, склад, health, OpenAPI и сгенерированный контракт клиента API.
 
-## Local Setup
+## Локальная настройка
 
-Requirements:
+Требования:
 - Node.js `24.15.0` (`.nvmrc`)
 - `pnpm` `10.33.0`
-- Docker Desktop for local PostgreSQL
+- Docker Desktop для локальной PostgreSQL
 
-Common local flow:
+Типовой сценарий:
 
 ```bash
 pnpm install
@@ -19,18 +19,18 @@ pnpm --filter @enot-tea/api db:migrate
 pnpm start:back:dev
 ```
 
-Runbooks and architecture docs:
-- Local development: `docs/runbooks/local-dev.md`
-- Release process: `docs/runbooks/release-process.md`
-- Project overview: `docs/project-overview.md`
-- API client/OpenAPI workflow: `docs/architecture/openapi-and-api-client.md`
+Руководства и архитектура:
+- Локальная разработка: `docs/runbooks/local-dev.md`
+- Релиз: `docs/runbooks/release-process.md`
+- Обзор проекта: `docs/project-overview.md`
+- OpenAPI и клиент API: `docs/architecture/openapi-and-api-client.md`
 
-## Verification
+## Проверка
 
-Main release gate from the repository root:
+Основной gate из корня репозитория:
 
 ```bash
 pnpm ci:verify
 ```
 
-This runs API typecheck/tests/build, Prisma schema validation, OpenAPI export, Orval client generation, and `@enot-tea/api-client` typecheck.
+Запускает проверку типов и тесты API, сборку, валидацию схемы Prisma, экспорт OpenAPI, генерацию Orval и проверку типов пакета `@enot-tea/api-client`.

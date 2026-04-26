@@ -1,21 +1,21 @@
-# Coding Style
+# Стиль кода
 
-## General
-- Favor simple, explicit code over abstraction-heavy solutions.
-- Keep files and functions focused and reasonably small.
-- Reuse existing patterns from nearby code.
+## Общие принципы
+- Предпочитай простой явный код сложным абстракциям.
+- Держи файлы и функции сфокусированными и по разумному объёму.
+- Повторяй принятые в соседнем коде шаблоны.
 
-## Naming
-- Use descriptive names for variables and functions.
-- Avoid vague names like `data`, `tmp`, `handler2` unless temporary in tiny scope.
+## Имена
+- Говорящие имена для переменных и функций.
+- Избегай безликих `data`, `tmp`, `handler2`, кроме крошечного временного scope.
 
-## Errors
-- Fail early with actionable error messages.
-- Do not swallow exceptions silently.
+## Ошибки
+- Падать рано, с сообщением, по которому можно исправить ситуацию.
+- Не глотать исключения молча.
 
-## Logging
-- Log operationally useful context.
-- Do not log secrets or personal data.
+## Логи
+- Логируй полезный для эксплуатации контекст.
+- Не логируй секреты и персональные данные.
 
-## Reviews
-- Each change should include rationale and verification steps.
+## Ревью
+- К изменению приложи краткое обоснование и шаги проверки.

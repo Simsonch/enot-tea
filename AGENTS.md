@@ -1,30 +1,30 @@
 # AGENTS
 
-## Goal
-- Keep changes small, safe, and easy to review.
-- Prefer project conventions over personal style.
+## Цель
+- Делать изменения небольшими, безопасными и удобными для ревью.
+- Следовать конвенциям проекта, а не личным предпочтениям.
 
-## Workflow
-1. Read relevant docs in `docs/` and active rules in `.cursor/rules/`.
-2. Propose a short plan for non-trivial tasks.
-3. Edit only files related to the task.
-4. Run checks relevant to touched files.
-5. Explain what changed and why.
+## Рабочий процесс
+1. Читать релевантные документы в `docs/` и активные правила в `.cursor/rules/`.
+2. Для нетривиальных задач предложить краткий план.
+3. Менять только файлы, относящиеся к задаче.
+4. Запускать проверки по затронутым файлам.
+5. Кратко объяснять, что и зачем изменено.
 
-## Boundaries
-- Do not refactor unrelated areas.
-- Do not change public API/contracts without explicit request.
-- Do not add dependencies unless necessary and justified.
+## Границы
+- Не рефакторить несвязанные участки.
+- Не менять публичный API и контракты без явного запроса.
+- Не добавлять зависимости без необходимости и обоснования.
 
-## Quality Bar
-- New behavior should be covered by tests where practical.
-- Preserve backward compatibility unless asked otherwise.
-- Keep naming and structure consistent with nearby code.
+## Планка качества
+- Новое поведение по возможности покрывать тестами.
+- Сохранять обратную совместимость, если не оговорено иначе.
+- Соответствовать неймингу и структуре кода рядом с изменениями.
 
-## Security
-- Never commit secrets or credentials.
-- Validate external input and fail safely.
+## Безопасность
+- Не коммитить секреты и учётные данные.
+- Валидировать внешний ввод и безопасно обрабатывать сбои.
 
-## Delivery
-- Provide clear file-level summary.
-- Include run/verify steps if execution is not possible.
+## Результат
+- Давать по файлам, что сделано.
+- Указывать шаги запуска/проверки, если выполнить их невозможно.

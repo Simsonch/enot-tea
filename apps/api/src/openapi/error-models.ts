@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ValidationErrorField } from './validation-error-field.js';
 
 /**
- * 400: validation and payload errors produced by the global `ValidationPipe` and service guards.
+ * 400: ошибки валидации и тела запроса от глобального `ValidationPipe` и проверок сервиса.
  */
 export class ApiValidationErrorBodyDto {
   @ApiProperty({ type: 'number', example: 400 })
@@ -19,7 +19,7 @@ export class ApiValidationErrorBodyDto {
 }
 
 /**
- * 409: domain/business rules (e.g. invalid status transition, inventory invariants, insufficient stock).
+ * 409: доменные/бизнес-правила (недопустимый переход статуса, инварианты склада, недостаток остатка).
  */
 export class ApiBusinessConflictBodyDto {
   @ApiProperty({ type: 'number', example: 409 })
@@ -28,7 +28,8 @@ export class ApiBusinessConflictBodyDto {
   @ApiProperty({
     type: 'string',
     example: 'INVALID_ORDER_STATUS_TRANSITION',
-    description: 'One of: INSUFFICIENT_STOCK, PRODUCT_INACTIVE, INVALID_ORDER_STATUS_TRANSITION, INVENTORY_INVARIANT_VIOLATION',
+    description:
+      'Один из: INSUFFICIENT_STOCK, PRODUCT_INACTIVE, INVALID_ORDER_STATUS_TRANSITION, INVENTORY_INVARIANT_VIOLATION',
   })
   code!: string;
 
@@ -40,7 +41,7 @@ export class ApiBusinessConflictBodyDto {
 }
 
 /**
- * 404: default NestJS not-found response used by service guards.
+ * 404: стандартный ответ NestJS «не найдено» от проверок сервиса.
  */
 export class ApiNotFoundErrorBodyDto {
   @ApiProperty({ type: 'number', example: 404 })
@@ -49,6 +50,6 @@ export class ApiNotFoundErrorBodyDto {
   @ApiProperty({ type: 'string', example: 'Заказ orderId=order-1 не найден.' })
   message!: string;
 
-  @ApiProperty({ type: 'string', example: 'Not Found' })
+  @ApiProperty({ type: 'string', example: 'Не найдено' })
   error!: string;
 }

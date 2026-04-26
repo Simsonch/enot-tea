@@ -1,20 +1,20 @@
-# Test Strategy (MVP)
+# Стратегия тестирования (MVP)
 
-## Goal
+## Цель
 Определить обязательные проверки для стабильного выпуска backend e-commerce сценариев (`catalog`, `orders`, `inventory`).
 
-## Scope
+## Область
 - Текущий обязательный контур: `apps/api`.
 - Основной фокус Sprint 4: контракт и регрессии в `orders`.
 - Документ синхронизирован с release gates из `docs/runbooks/release-process.md`.
 - **Расширение (Sprint 6+):** после появления `apps/storefront`, `apps/admin` и email-уведомлений (см. [product roadmap](../product-roadmap.md), [Sprint 8 plan](../sprints/sprint-8-plan.md)) release gate дополняется smokes: гостевой checkout, ручной pipeline владельца, тестовая доставка писем; CI для фронтенд-приложений — по мере появления скриптов `build`/`test` в workspace.
 
-## Test Pyramid
+## Пирамида тестов
 - Unit: бизнес-правила сервисов (`OrdersService`, валидации, инварианты).
 - HTTP contract tests: boundary-контракты endpoint-ов и форматы ошибок.
 - Smoke manual/API checks: минимальный post-release контроль критичных сценариев.
 
-## Mandatory Release-Gate Suite
+## Обязательный набор ворот релиза
 Из корня репозитория (эквивалент шагов ниже):
 - `pnpm ci:verify` — `typecheck` + `test` + `build` для `apps/api`, `db:validate`, экспорт OpenAPI в `packages/api-client/spec/openapi.json`, Orval-генерация `packages/api-client`, `tsc` для `@enot-tea/api-client`.
 - `pnpm --filter "@enot-tea/api" typecheck`
@@ -24,7 +24,7 @@
 - `pnpm openapi:export` и `pnpm api-client:gen` (или `pnpm api-client:regen`)
 - `pnpm typecheck:api-client`
 
-## Release-Gate Coverage Map
+## Карта покрытия ворот релиза
 - `typecheck`:
   - проверка типов и совместимости TS-контрактов.
 - `test`:
@@ -37,7 +37,7 @@
 - `db:validate`:
   - проверка `prisma/schema.prisma` и Prisma-конфига.
 
-## Critical Business Flows to Cover
+## Критичные бизнес-сценарии для покрытия
 - Создание заказа (`POST /orders`) с проверкой `INSUFFICIENT_STOCK`.
 - Создание заказа с атомарным резервом на последний остаток без oversell.
 - Блокировка заказа для `Product.isActive = false`.
@@ -47,14 +47,14 @@
 - Инварианты склада при `SHIPPED`: списание `onHand` и `reserved`.
 - Каталог (`GET /products`) с пагинацией и фильтром `isActive`.
 
-## Error Contract Coverage
+## Покрытие контракта ошибок
 - `VALIDATION_ERROR` (400) — невалидные входные данные.
 - `INVALID_ORDER_STATUS_TRANSITION` (409) — запрещенный переход статуса.
 - `INVENTORY_INVARIANT_VIOLATION` (409) — нарушение складских инвариантов.
 - `INSUFFICIENT_STOCK` (409) — нехватка доступного остатка.
 - `PRODUCT_INACTIVE` (409) — попытка оформить заказ на неактивный товар.
 
-## Minimum Regression Policy
+## Минимальная политика регрессии
 - Любое изменение поведения `orders` требует:
   - минимум 1 happy-path тест;
   - минимум 1 negative-case тест;
@@ -64,7 +64,7 @@
   - тестами блокировки недопустимых переходов;
   - тестами побочных эффектов на складе (`onHand`, `reserved`).
 
-## Execution Cadence
+## Периодичность запусков
 - На каждый PR в `apps/api`:
   - минимум `typecheck` + таргетные тесты затронутого модуля.
 - Перед merge в release-ветку:
@@ -72,12 +72,12 @@
 - После деплоя:
   - smoke-проверки из `docs/runbooks/release-process.md`.
 
-## Quality Rules
+## Правила качества
 - Тестируем наблюдаемое поведение, а не внутренние реализации.
 - Для каждого измененного поведения есть happy path и негативный кейс.
 - Тесты детерминированы и не зависят от побочных состояний окружения.
 
-## Ownership
+## Зоны ответственности
 - QA Owner: подтверждает прохождение release-gate suite перед релизом.
 - Backend Owner: поддерживает актуальность unit/HTTP contract tests для `orders`.
 - Release Owner: принимает go/no-go только при подтвержденном прохождении mandatory suite.

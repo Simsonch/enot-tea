@@ -1,10 +1,10 @@
-# Sprint 8 Plan
+# План спринта 8
 
-## Goal
+## Цель
 
 **Email-уведомления** и **release hardening** перед выводом в прод: клиент получает письма по ключевым статусам; шаблоны, env для провайдера, policy при сбое доставки; расширенные smoke- и runbook-процедуры (checkout + admin + email + склад).
 
-## Scope In
+## Входит
 
 - Выбор/подключение email-провайдера (SendGrid, SES, Resend, др.) - **только через env**, секреты не в репозитории.
 - Сервис отправки: асинхронно или `try/catch` с записью "notification failed" без отката заказа (см. [guest-checkout-mvp-lifecycle](../architecture/guest-checkout-mvp-lifecycle.md) п.5).
@@ -14,29 +14,29 @@
 - Runbook: проверка складской консистентности (ссылка на [rollback-and-recovery](../runbooks/rollback-and-recovery.md) при необходимости).
 - Расширение CI при появлении e2e (опция): smoke job.
 
-## Scope Out
+## Не входит
 
 - SMS, Telegram, push.
 - Маркетинговые рассылки.
 - Механизм гарантированной доставки 99.99% (достаточно best-effort + ручной recovery в MVP).
 
-## Dependencies
+## Зависимости
 
 - Sprint 5-7: корректные события/статусы, по которым слать письма.
 - Безопасный email в заказе: `customerEmail` из snapshot.
 
-## Risks
+## Риски
 
 - Письма в dev - sandbox; не слать production accidentally.
 - Rate limits API провайдера.
 
-## Definition of Done
+## Критерии готовности
 
 - На key transitions приходит письмо (проверено в sandbox) или зафиксирован controlled skip в staging с инструкцией.
 - Сбой email не портит инварианты заказа/склада; есть retry или manual resend.
 - Runbookи обновлены; smoke checklist пройден.
 
-## Acceptance Checklist
+## Чеклист приёмки
 
 - [ ] `docs/sprints/sprint-8-backlog.md` - P0 закрыты.
 - [ ] `docs/runbooks/...` - дополнения внесены.

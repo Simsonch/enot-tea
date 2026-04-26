@@ -1,11 +1,11 @@
-# Sprint 4 Backlog
+# Бэклог спринта 4
 
-## Priorities
+## Приоритеты
 - `P0`: обязательные задачи Sprint 4.
 - `P1`: высокий приоритет при наличии емкости.
 - `P2`: подготовка следующего спринта.
 
-## Tasks
+## Задачи
 
 | ID | Priority | Task | Owner | Dependencies | Deliverable |
 | --- | --- | --- | --- | --- | --- |
@@ -21,7 +21,7 @@
 | S4-010 | P1 | Создать ADR: lifecycle policy и error contract standard | Architect | S4-006 | `docs/adr/0003-order-lifecycle-policy.md`, `docs/adr/0004-api-error-contract-standard.md` |
 | S4-011 | P2 | Подготовить onboarding runbook для storefront/admin local-dev | Frontend Lead | S4-002, S4-003 | `docs/runbooks/local-dev-storefront-admin.md` |
 
-## Status
+## Статус
 - [x] `S4-001` выполнена: Sprint 4 plan/backlog зафиксированы в целевых документах.
 - [x] `S4-002` выполнена: `project-overview` синхронизирован с фактическим статусом модулей (`implemented/planned`).
 - [x] `S4-003` выполнена: `local-dev` разделен на актуальный runbook и архив исторических итогов спринтов.
@@ -34,12 +34,12 @@
 - [x] `S4-010` выполнена: ADR по lifecycle и error-contract финализированы и связаны с тестами/контрактной матрицей.
 - [x] `S4-011` выполнена: добавлен onboarding runbook для `storefront/admin` local-dev.
 
-## Release Gate for Sprint 4 Exit
+## Ворота релиза: выход из спринта 4
 - [x] Все `P0` задачи закрыты.
 - [x] Пройдены `pnpm --filter "@enot-tea/api" typecheck`, `test`, `build`, `db:validate`.
 - [x] Документы runbook и ADR связаны ссылками и не конфликтуют по терминологии.
 - [x] Контракт `orders` задокументирован и подтвержден тестами.
 
-## Notes
+## Примечания
 - Оценки (S/M/L) не добавляются по текущему решению.
 - Любые изменения публичных API выполняются только через отдельное согласование.

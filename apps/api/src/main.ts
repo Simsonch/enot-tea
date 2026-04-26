@@ -25,7 +25,7 @@ async function bootstrap() {
   if (process.env.SWAGGER_DISABLE !== '1') {
     const document = buildOpenApiDocument(app);
     SwaggerModule.setup('api', app, document, {
-      customSiteTitle: 'Enot Tea API',
+      customSiteTitle: 'API Enot Tea',
     });
   }
 

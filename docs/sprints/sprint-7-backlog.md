@@ -1,12 +1,12 @@
-# Sprint 7 Backlog
+# Бэклог спринта 7
 
-## Priorities
+## Приоритеты
 
 - `P0`: owner auth, list/detail, ручной pipeline.
 - `P1`: фильтры, удобство, телефон/адрес формат.
 - `P2`: a11y, метрики UI.
 
-## Tasks
+## Задачи
 
 | ID | Priority | Task | Owner | Dependencies | Deliverable |
 |----|----------|------|-------|--------------|-------------|
@@ -21,16 +21,16 @@
 | S7-008 | P1 | Runbook: логин владельца, local-dev | Tech Lead | S7-002 | [local-dev-storefront-admin](../runbooks/local-dev-storefront-admin.md) |
 | S7-009 | P1 | E2E smoke admin (опц.) | QA | S7-005 | тест/чек-лист |
 
-## Status
+## Статус
 
 - [ ] P0 в работе/не завершен.
 
-## Release Gate for Sprint 7 Exit
+## Ворота релиза: выход из спринта 7
 
 - [ ] E2E happy path на staging/local по чек-листу.
 - [ ] Публичные write-endpoints к заказам защищены owner-only.
 - [ ] P0 в backlog `done` или с defer note.
 
-## Notes
+## Примечания
 
 - Секреты владельца только в env, не в git.

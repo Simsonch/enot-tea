@@ -1,19 +1,19 @@
-# Release Process (MVP)
+# Процесс релиза (MVP)
 
-## Goal
+## Цель
 Стандартизировать выпуск изменений для `apps/api` и задать единые release gates до расширения на витрину и админку.
 
-## Current Scope
+## Текущая область
 - `apps/api` — в текущем спринте обязательный контур релиза.
 - `apps/storefront`, `apps/admin` — planned; при появлении включаются в те же этапы.
 
-## Roles
+## Роли
 - Release Owner: координирует релиз и принимает go/no-go.
 - Backend Owner: подтверждает техническую готовность `apps/api`.
 - QA Owner: подтверждает прохождение release-gate проверок.
 - Incident Commander (on-call): принимает управление при проблемах после релиза.
 
-## Release Flow (End-to-End)
+## Поток релиза (сквозной)
 1. **Plan**: зафиксировать scope релиза, окно релиза, ответственных и rollback owner.
 2. **Verify**: пройти обязательные release gates и pre-release checklist.
 3. **Go/No-Go**: провести короткий checkpoint и принять решение о rollout.
@@ -21,7 +21,7 @@
 5. **Observe**: мониторить сервис в окне наблюдения.
 6. **Close**: закрыть релиз или эскалировать инцидент/rollback.
 
-## Release Gates (Mandatory, from repo root)
+## Ворота релиза (обязательны, из корня репозитория)
 - `pnpm ci:verify` — агрегирует проверки API, Prisma, экспорт OpenAPI и генерацию пакета `@enot-tea/api-client` (см. `docs/architecture/openapi-and-api-client.md`).
 - Раздельно (эквивалент `ci:verify` для `apps/api` + артефакты контракта):
   - `pnpm --filter "@enot-tea/api" typecheck`
@@ -31,7 +31,7 @@
   - `pnpm openapi:export` и `pnpm api-client:gen` (или `pnpm api-client:regen`)
   - `pnpm typecheck:api-client`
 
-## Entry Criteria (Before Rollout)
+## Критерии входа (перед выкатыванием)
 - [ ] Scope релиза и change list зафиксированы.
 - [ ] Назначены Release Owner, Backend Owner, QA Owner.
 - [ ] Обновлены релевантные docs (`project-overview`, runbooks, контракты API) при изменении поведения.
@@ -41,7 +41,7 @@
 - [ ] Зафиксировано окно наблюдения после релиза и ответственные.
 - [ ] Все команды из Release Gates пройдены успешно.
 
-## Go/No-Go Checkpoint
+## Контрольная точка go/no-go
 Решение `go` принимается, если одновременно выполняются условия:
 - Release Gates пройдены без ошибок.
 - Нет блокирующих дефектов уровня `SEV-1`/`SEV-2`.
@@ -50,7 +50,7 @@
 
 Иначе решение `no-go`: релиз переносится, фиксируется причина и план корректирующих действий.
 
-## Rollout Steps
+## Шаги выкатывания
 1. Зафиксировать релизный артефакт (commit/tag/версия).
 2. Выполнить деплой в целевое окружение по стандарту команды.
 3. Выполнить post-release smoke:
@@ -59,21 +59,21 @@
    - критичный `orders` сценарий не деградировал.
 4. Зафиксировать результат smoke в release notes/канале релиза.
 
-## Rollback Decision Points
-### Trigger conditions for immediate rollback
+## Точки решения об откате
+### Условия немедленного отката
 - API недоступен после rollout.
 - Критичный endpoint (`POST /orders`, `PATCH /orders/:id/status`, `GET /health/db`) стабильно не проходит smoke.
 - Наблюдается устойчивый скачок `5xx` или контрактных бизнес-ошибок, влияющий на оформление/обработку заказов.
 - Подтвержден риск нарушения инвариантов `orders`/`inventory`.
 
-### When forward-fix is acceptable
+### Когда допустим forward-fix
 - Влияние ограничено и не затрагивает критичный order flow.
 - Есть безопасный фикс в пределах согласованного короткого окна.
 - Incident Commander и Release Owner явно согласовали стратегию.
 
 Если хотя бы один критерий для forward-fix не выполняется, выбирать rollback.
 
-## Observation Window
+## Окно наблюдения
 - Минимум 30 минут после rollout для MVP-релиза.
 - Отслеживать:
   - доступность health endpoint;
@@ -81,7 +81,7 @@
   - latency ключевых API;
   - успешность критичного order flow.
 
-## Exit Criteria
+## Критерии выхода
 - Release Gates и post-release smoke пройдены.
 - В окне наблюдения нет деградации критичных сценариев.
 - Решение `release closed` зафиксировано Release Owner.

@@ -1,12 +1,12 @@
-# Sprint 6 Backlog
+# Бэклог спринта 6
 
-## Priorities
+## Приоритеты
 
 - `P0`: витрина и happy-path checkout.
 - `P1`: UX и доступность, базовая обработка ошибок.
 - `P2`: e2e автоматизация.
 
-## Tasks
+## Задачи
 
 | ID | Priority | Task | Owner | Dependencies | Deliverable |
 |----|----------|------|-------|--------------|-------------|
@@ -20,16 +20,16 @@
 | S6-008 | P1 | Обновить [local-dev-storefront-admin](../runbooks/local-dev-storefront-admin.md) | Tech Lead | S6-001 | runbook |
 | S6-009 | P2 | Smoke e2e (опционально) | QA / FE | S6-005 | e2e job или docs |
 
-## Status
+## Статус
 
 - [ ] P0 не завершен.
 
-## Release Gate for Sprint 6 Exit
+## Ворота релиза: выход из спринта 6
 
 - [ ] Ручной happy path задокументирован.
 - [ ] Сборка storefront без ошибок.
 - [ ] Все P0 в backlog закрыты или явно отложены с причиной.
 
-## Notes
+## Примечания
 
 - Не класть секреты в фронт; API URL - из env.

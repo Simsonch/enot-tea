@@ -69,7 +69,7 @@ test('OpenAPI document includes expected paths and order operations', async () =
     ]);
     assert.equal(
       createOrderSchema.properties?.customerId?.description,
-      'Optional linked customer id for non-guest orders; omit for guest checkout.',
+      'Необязательный связанный id покупателя для негостевых заказов; для гостевого checkout не указывайте.',
     );
     assert.equal(createOrderSchema.properties?.items?.minItems, 1);
     const orderResponseSchema = schemas.OrderResponseDto;
@@ -100,12 +100,12 @@ test('OpenAPI document includes expected paths and order operations', async () =
       '#/components/schemas/ApiNotFoundErrorBodyDto',
     );
     const orderCreate = paths['/orders']?.post as OpenApiOperation | undefined;
-    assert.equal(orderCreate?.summary, 'Create guest checkout order and reserve stock');
+    assert.equal(orderCreate?.summary, 'Создать гостевой заказ и зарезервировать склад');
     assert.match(orderCreate?.description ?? '', /ADR 0005/);
     const cancel = paths[`${orderById}/cancel`]?.patch as OpenApiOperation | undefined;
     assert.equal(
       cancel?.summary,
-      'Cancel not-yet-shipped order and release reserved stock',
+      'Отменить ещё не отгруженный заказ и снять резерв',
     );
     assert.ok(paths[`${orderById}/invoice-sent`]?.patch, 'invoice sent is documented');
     assert.ok(
@@ -117,14 +117,14 @@ test('OpenAPI document includes expected paths and order operations', async () =
       | undefined;
     assert.equal(
       handoff?.summary,
-      'Hand order off to delivery and decrement onHand/reserved stock',
+      'Передать заказ в доставку, уменьшить onHand и reserved на складе',
     );
     assert.ok(paths[`${orderById}/delivered`]?.patch, 'delivered is documented');
     const legacyStatus = paths[`${orderById}/status`]?.patch as
       | OpenApiOperation
       | undefined;
-    assert.equal(legacyStatus?.summary, 'Legacy single-status transition endpoint');
-    assert.equal(document.info?.title, 'Enot Tea API');
+    assert.equal(legacyStatus?.summary, 'Устаревший эндпоинт смены единого статуса');
+    assert.equal(document.info?.title, 'API Enot Tea');
   } finally {
     await app.close();
   }

@@ -42,10 +42,10 @@ export class OrdersController {
   ) {}
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get order with guest snapshot, items, statuses, and history' })
-  @ApiParam({ name: 'id', description: 'Order id', type: String })
+  @ApiOperation({ summary: 'Получить заказ: снимок гостя, позиции, статусы, история' })
+  @ApiParam({ name: 'id', description: 'Идентификатор заказа', type: String })
   @ApiOkResponse({ type: OrderResponseDto })
-  @ApiNotFoundResponse({ type: ApiNotFoundErrorBodyDto, description: 'Order not found' })
+  @ApiNotFoundResponse({ type: ApiNotFoundErrorBodyDto, description: 'Заказ не найден' })
   getById(@Param('id') id: string) {
     return this.ordersService.getById(id);
   }
@@ -53,42 +53,51 @@ export class OrdersController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
-    summary: 'Create guest checkout order and reserve stock',
+    summary: 'Создать гостевой заказ и зарезервировать склад',
     description:
-      'ADR 0005 public contract: customer snapshot fields are required; customerId is optional for linked non-guest orders.',
+      'Публичный контракт ADR 0005: поля снимка покупателя обязательны; customerId — опционально для связанных негостевых заказов.',
   })
   @ApiBody({ type: CreateOrderDto })
   @ApiCreatedResponse({ type: OrderResponseDto })
-  @ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Invalid payload' })
-  @ApiConflictResponse({ type: ApiBusinessConflictBodyDto, description: 'Out of stock or inactive product' })
+  @ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Некорректное тело запроса' })
+  @ApiConflictResponse({
+    type: ApiBusinessConflictBodyDto,
+    description: 'Нет на складе или товар неактивен',
+  })
   @ApiNotFoundResponse({
     type: ApiNotFoundErrorBodyDto,
-    description: 'Customer, product, or inventory row not found',
+    description: 'Покупатель, товар или строка склада не найдены',
   })
   create(@Body() dto: CreateOrderDto) {
     return this.ordersService.create(dto);
   }
 
   @Patch(':id/cancel')
-  @ApiOperation({ summary: 'Cancel not-yet-shipped order and release reserved stock' })
-  @ApiParam({ name: 'id', description: 'Order id', type: String })
+  @ApiOperation({ summary: 'Отменить ещё не отгруженный заказ и снять резерв' })
+  @ApiParam({ name: 'id', description: 'Идентификатор заказа', type: String })
   @ApiBody({ type: ManualOrderLifecycleTransitionDto, required: false })
   @ApiOkResponse({ type: OrderResponseDto })
-  @ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Invalid payload' })
-  @ApiConflictResponse({ type: ApiBusinessConflictBodyDto, description: 'Invalid transition or inventory invariant' })
-  @ApiNotFoundResponse({ type: ApiNotFoundErrorBodyDto, description: 'Order or inventory not found' })
+  @ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Некорректное тело запроса' })
+  @ApiConflictResponse({
+    type: ApiBusinessConflictBodyDto,
+    description: 'Недопустимый переход или нарушение инварианта склада',
+  })
+  @ApiNotFoundResponse({ type: ApiNotFoundErrorBodyDto, description: 'Заказ или склад не найдены' })
   cancel(@Param('id') id: string, @Body() dto: ManualOrderLifecycleTransitionDto = {}) {
     return this.ordersService.cancel(id, dto);
   }
 
   @Patch(':id/invoice-sent')
-  @ApiOperation({ summary: 'Mark manual invoice as sent' })
-  @ApiParam({ name: 'id', description: 'Order id', type: String })
+  @ApiOperation({ summary: 'Отметить, что счёт вручную отправлен' })
+  @ApiParam({ name: 'id', description: 'Идентификатор заказа', type: String })
   @ApiBody({ type: ManualOrderLifecycleTransitionDto, required: false })
   @ApiOkResponse({ type: OrderResponseDto })
-  @ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Invalid payload' })
-  @ApiConflictResponse({ type: ApiBusinessConflictBodyDto, description: 'Invalid lifecycle transition' })
-  @ApiNotFoundResponse({ type: ApiNotFoundErrorBodyDto, description: 'Order not found' })
+  @ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Некорректное тело запроса' })
+  @ApiConflictResponse({
+    type: ApiBusinessConflictBodyDto,
+    description: 'Недопустимый переход в жизненном цикле',
+  })
+  @ApiNotFoundResponse({ type: ApiNotFoundErrorBodyDto, description: 'Заказ не найден' })
   markInvoiceSent(
     @Param('id') id: string,
     @Body() dto: ManualOrderLifecycleTransitionDto = {},
@@ -97,13 +106,16 @@ export class OrdersController {
   }
 
   @Patch(':id/payment-confirmed')
-  @ApiOperation({ summary: 'Confirm manual payment' })
-  @ApiParam({ name: 'id', description: 'Order id', type: String })
+  @ApiOperation({ summary: 'Подтвердить ручную оплату' })
+  @ApiParam({ name: 'id', description: 'Идентификатор заказа', type: String })
   @ApiBody({ type: ManualOrderLifecycleTransitionDto, required: false })
   @ApiOkResponse({ type: OrderResponseDto })
-  @ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Invalid payload' })
-  @ApiConflictResponse({ type: ApiBusinessConflictBodyDto, description: 'Invalid lifecycle transition' })
-  @ApiNotFoundResponse({ type: ApiNotFoundErrorBodyDto, description: 'Order not found' })
+  @ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Некорректное тело запроса' })
+  @ApiConflictResponse({
+    type: ApiBusinessConflictBodyDto,
+    description: 'Недопустимый переход в жизненном цикле',
+  })
+  @ApiNotFoundResponse({ type: ApiNotFoundErrorBodyDto, description: 'Заказ не найден' })
   confirmPayment(
     @Param('id') id: string,
     @Body() dto: ManualOrderLifecycleTransitionDto = {},
@@ -112,13 +124,18 @@ export class OrdersController {
   }
 
   @Patch(':id/handoff-to-delivery')
-  @ApiOperation({ summary: 'Hand order off to delivery and decrement onHand/reserved stock' })
-  @ApiParam({ name: 'id', description: 'Order id', type: String })
+  @ApiOperation({
+    summary: 'Передать заказ в доставку, уменьшить onHand и reserved на складе',
+  })
+  @ApiParam({ name: 'id', description: 'Идентификатор заказа', type: String })
   @ApiBody({ type: ManualOrderLifecycleTransitionDto, required: false })
   @ApiOkResponse({ type: OrderResponseDto })
-  @ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Invalid payload' })
-  @ApiConflictResponse({ type: ApiBusinessConflictBodyDto, description: 'Invalid transition or inventory invariant' })
-  @ApiNotFoundResponse({ type: ApiNotFoundErrorBodyDto, description: 'Order or inventory not found' })
+  @ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Некорректное тело запроса' })
+  @ApiConflictResponse({
+    type: ApiBusinessConflictBodyDto,
+    description: 'Недопустимый переход или нарушение инварианта склада',
+  })
+  @ApiNotFoundResponse({ type: ApiNotFoundErrorBodyDto, description: 'Заказ или склад не найдены' })
   handOffToDelivery(
     @Param('id') id: string,
     @Body() dto: ManualOrderLifecycleTransitionDto = {},
@@ -127,13 +144,16 @@ export class OrdersController {
   }
 
   @Patch(':id/delivered')
-  @ApiOperation({ summary: 'Confirm customer receipt / delivery' })
-  @ApiParam({ name: 'id', description: 'Order id', type: String })
+  @ApiOperation({ summary: 'Подтвердить получение покупателем / доставку' })
+  @ApiParam({ name: 'id', description: 'Идентификатор заказа', type: String })
   @ApiBody({ type: ManualOrderLifecycleTransitionDto, required: false })
   @ApiOkResponse({ type: OrderResponseDto })
-  @ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Invalid payload' })
-  @ApiConflictResponse({ type: ApiBusinessConflictBodyDto, description: 'Invalid lifecycle transition' })
-  @ApiNotFoundResponse({ type: ApiNotFoundErrorBodyDto, description: 'Order not found' })
+  @ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Некорректное тело запроса' })
+  @ApiConflictResponse({
+    type: ApiBusinessConflictBodyDto,
+    description: 'Недопустимый переход в жизненном цикле',
+  })
+  @ApiNotFoundResponse({ type: ApiNotFoundErrorBodyDto, description: 'Заказ не найден' })
   confirmDelivered(
     @Param('id') id: string,
     @Body() dto: ManualOrderLifecycleTransitionDto = {},
@@ -142,13 +162,16 @@ export class OrdersController {
   }
 
   @Patch(':id/status')
-  @ApiOperation({ summary: 'Legacy single-status transition endpoint' })
-  @ApiParam({ name: 'id', description: 'Order id', type: String })
+  @ApiOperation({ summary: 'Устаревший эндпоинт смены единого статуса' })
+  @ApiParam({ name: 'id', description: 'Идентификатор заказа', type: String })
   @ApiBody({ type: UpdateOrderStatusDto })
   @ApiOkResponse({ type: OrderResponseDto })
-  @ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Invalid payload' })
-  @ApiConflictResponse({ type: ApiBusinessConflictBodyDto, description: 'Invalid transition or inventory invariant' })
-  @ApiNotFoundResponse({ type: ApiNotFoundErrorBodyDto, description: 'Order or inventory not found' })
+  @ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Некорректное тело запроса' })
+  @ApiConflictResponse({
+    type: ApiBusinessConflictBodyDto,
+    description: 'Недопустимый переход или нарушение инварианта склада',
+  })
+  @ApiNotFoundResponse({ type: ApiNotFoundErrorBodyDto, description: 'Заказ или склад не найдены' })
   updateStatus(@Param('id') id: string, @Body() dto: UpdateOrderStatusDto) {
     return this.ordersService.updateStatus(id, dto);
   }

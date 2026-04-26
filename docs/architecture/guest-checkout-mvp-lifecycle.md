@@ -1,4 +1,4 @@
-# Guest checkout и жизненный цикл MVP (Enot Tea)
+# Гостевой checkout и жизненный цикл MVP (Enot Tea)
 
 Сопровождает [ADR 0005: MVP guest checkout и раздельные статусы](../adr/0005-mvp-guest-checkout-order-lifecycle.md). Начиная со Sprint 5, документ описывает фактический публичный order flow backend API и должен обновляться вместе с OpenAPI/client generation.
 

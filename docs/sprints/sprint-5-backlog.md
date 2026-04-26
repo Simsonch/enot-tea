@@ -1,12 +1,12 @@
-# Sprint 5 Backlog
+# Бэклог спринта 5
 
-## Priorities
+## Приоритеты
 
 - `P0`: обязательно для exit Sprint 5.
 - `P1`: по емкости.
 - `P2`: задел под следующий спринт.
 
-## Tasks
+## Задачи
 
 | ID | Priority | Task | Owner | Dependencies | Deliverable |
 |----|----------|------|-------|--------------|-------------|
@@ -19,17 +19,17 @@
 | S5-007 | P1 | Dокументировать точку списания onHand (ADR note или абзац в guest-checkout) | Architect | S5-003 | [guest-checkout-mvp-lifecycle](../architecture/guest-checkout-mvp-lifecycle.md) / ADR 0005 заметка |
 | S5-008 | P2 | Сид или скрипт владельца (если договоренность «минимум auth в S5») | Backend Lead | S5-001 | по решению команды |
 
-## Status
+## Статус
 
 - [ ] Все P0 запланированы и назначены.
 - [ ] `pnpm ci:verify` - green.
 
-## Release Gate for Sprint 5 Exit
+## Ворота релиза: выход из спринта 5
 
 - [ ] `pnpm --filter @enot-tea/api` typecheck, test, build, db:validate.
 - [ ] `pnpm api-client:regen` + нет uncommitted diff в spec/generated.
 - [ ] Доки matrix и ADR 0003/0005 согласованы с фактом в коде.
 
-## Notes
+## Примечания
 
 - Ломающие публичные API - только с явной меткой в PR и обновлением matrix.

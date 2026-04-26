@@ -1,10 +1,10 @@
-# Sprint 7 Plan
+# План спринта 7
 
-## Goal
+## Цель
 
 **Админка владельца**: один тип пользователя (владелец) с полным доступом; список заказов, карточка заказа с гостевыми данными и позициями; **ручные** действия согласно [guest-checkout-mvp-lifecycle](../architecture/guest-checkout-mvp-lifecycle.md): выставлен счет, оплата подтверждена, передано в доставку, подтверждение получения, отмена; аутентификация для админ-операций.
 
-## Scope In
+## Входит
 
 - Создать `apps/admin` (stack по решению команды), workspace, `@enot-tea/api-client`.
 - **Auth** для владельца: минимально (логин/сессия/JWT) - договоренность в реализации; только owner на старте.
@@ -14,29 +14,29 @@
 - Runbook: обновить [local-dev-storefront-admin](../runbooks/local-dev-storefront-admin.md) с владельцем и сидом/учетной записью.
 - Минимальный admin smoke: заказ -> счет -> оплата -> доставка -> завершен.
 
-## Scope Out
+## Не входит
 
 - Роли manager/consultant, разграничение прав внутри админки.
 - Чат.
 - Email-отправка (Sprint 8) - в админке может быть **заглушка** "уведомление отправлено" только после S8.
 
-## Dependencies
+## Зависимости
 
 - Sprint 5-6: guest orders и публичный витринный поток.
 - Стабильные API для list orders (если еще нет - добавить в S5/7 P0: `GET /orders` with pagination owner-only).
 
-## Risks
+## Риски
 
 - Список заказов без `GET /admin/orders` - потребуется endpoint (спланировать в S5 or S7 backlog).
 - Секьюрность: не утекать гостевые PII в логи.
 
-## Definition of Done
+## Критерии готовности
 
 - Владелец проходит E2E ручного контура без SQL.
 - Недопустимые переходы блокируются с теми же кодами, что в contract matrix.
 - `pnpm` build admin; документация обновлена.
 
-## Acceptance Checklist
+## Чеклист приёмки
 
 - [ ] `docs/sprints/sprint-7-backlog.md` - P0 закрыты.
 - [ ] `apps/admin` в workspace.

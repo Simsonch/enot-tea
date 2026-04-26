@@ -1,12 +1,12 @@
-# Sprint 4 Plan
+# План спринта 4
 
-## Goal
+## Цель
 Подготовить платформу к запуску витрины и админки за счет:
 - выравнивания документации с фактическим состоянием репозитория;
 - формализации release/deploy/incident/recovery процессов;
 - усиления контрактов `orders` и проверок тестами.
 
-## Scope In
+## Входит
 - Планирование и прозрачный backlog Sprint 4.
 - Синхронизация `project-overview` и `local-dev` с фактической реализацией.
 - Новые/обновленные runbook-документы для релиза и инцидентов.
@@ -14,30 +14,30 @@
 - Усиление тестов `orders` на backward-compatibility и контракт ошибок.
 - Базовая test strategy и ADR по lifecycle/error-contract.
 
-## Scope Out
+## Не входит
 - Реализация `apps/storefront` и `apps/admin` функционала.
 - Изменение production инфраструктуры и CI/CD пайплайнов.
 - Ломающее изменение текущих API контрактов.
 
-## Dependencies
+## Зависимости
 1. Описать цель и структуру Sprint 4 (`sprint-4-plan`, `sprint-4-backlog`).
 2. Обновить базовую архитектурную и dev документацию.
 3. Зафиксировать release/incident/recovery процессы.
 4. После фиксации контрактов обновить тесты `orders`.
 5. Финализировать test strategy и ADR.
 
-## Risks
+## Риски
 - Расхождение между архитектурными документами и фактическим кодом.
 - Недостаточная детализация rollback/recovery для боевых инцидентов.
 - Регрессии в `orders` при изменениях тестов/контрактных ожиданий.
 
-## Definition of Done
+## Критерии готовности
 - Все задачи Sprint 4 отражены в `docs/sprints/sprint-4-backlog.md` с owner, priority, dependencies.
 - Актуальные документы не противоречат фактической структуре репозитория.
 - Контракты `orders` зафиксированы в docs и покрыты тестами.
 - Проверки `typecheck`, `test`, `build`, `db:validate` для `apps/api` проходят.
 
-## Acceptance Checklist
+## Чеклист приёмки
 - [x] `docs/sprints/sprint-4-backlog.md` заполнен и согласован.
 - [x] `docs/project-overview.md` отражает `implemented/planned` статус модулей.
 - [x] `docs/runbooks/local-dev.md` разделен на актуальные инструкции и исторические итоги.

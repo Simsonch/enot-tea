@@ -1,10 +1,10 @@
-# Sprint 6 Plan
+# План спринта 6
 
-## Goal
+## Цель
 
 **Публичная витрина**: каталог, корзина, оформление заказа **без регистрации** с полями ФИО, email, адрес (телефон опционально), отображение успеха и понятных ошибок API, использование `@enot-tea/api-client` по контракту Sprint 5.
 
-## Scope In
+## Входит
 
 - Создать `apps/storefront` в монорепозитории (стек: по решению команды, согласованный с [ADR 0001](../adr/0001-monorepo-structure.md) и `pnpm-workspace.yaml`).
 - Подключение workspace-зависимости ` "@enot-tea/api-client": "workspace:*" `.
@@ -14,29 +14,29 @@
 - Документация: обновить [local-dev-storefront-admin](../runbooks/local-dev-storefront-admin.md) или аналогичный runbook.
 - Минимальный smoke: вручную по чек-листу или e2e-скелет (если выбран Playwright/др.) - зафиксировать в [test-strategy](../testing/test-strategy.md) при появлении тестов фронта.
 
-## Scope Out
+## Не входит
 
 - Личный кабинет, история заказов гостя.
 - Онлайн-оплата.
 - Админка (Sprint 7).
 - Email (Sprint 8).
 
-## Dependencies
+## Зависимости
 
 - Sprint 5: стабильный `POST /orders` с guest payload и `pnpm ci:verify` по api-client.
 
-## Risks
+## Риски
 
 - CORS/прокси в dev: зафиксировать в runbook.
 - Несоответствие DTO: реген Orval и типы из корня.
 
-## Definition of Done
+## Критерии готовности
 
 - С гостя через UI проходит: каталог -> корзина -> checkout -> созданный заказ (id/подтверждение).
 - Негативные кейсы не ломают UI (сообщения пользователю).
 - `pnpm` build storefront в CI (когда pipeline расширен) или минимальная verify-команда в `package.json` monorepo.
 
-## Acceptance Checklist
+## Чеклист приёмки
 
 - [ ] `docs/sprints/sprint-6-backlog.md` - P0 закрыты.
 - [ ] `apps/storefront` в workspace.

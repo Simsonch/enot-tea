@@ -1,4 +1,4 @@
-# Product roadmap: запуск MVP продаж Enot Tea
+# Дорожная карта продукта: запуск MVP продаж Enot Tea
 
 Документ фиксирует целевой MVP, пользовательский flow, архитектурные принципы и план по спринтам 5–9. Статус **реализации** — см. `docs/project-overview.md` и бэклоги `docs/sprints/sprint-*-backlog.md`.
 

@@ -80,7 +80,7 @@
 - Оба шага: `pnpm api-client:regen`. Подробности: `docs/architecture/openapi-and-api-client.md`.
 
 ### Проверка API
-- `GET /` -> `API is running`
+- `GET /` -> `Служба API запущена`
 - `GET /health/db` -> `{"status":"ok","db":"up"}`
 - `GET /products?limit=20&offset=0&isActive=true` -> `200` и список товаров с пагинацией
 - `POST /orders` -> `201` и созданный заказ с позициями

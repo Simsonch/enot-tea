@@ -75,6 +75,7 @@
 ## 4. Аудит
 
 - `OrderStatusHistory` — **все** значимые переходы (по `OrderStatus`, и при отдельных endpoint — по `Payment`/`Fulfillment` если вынесены в отдельные таблицы/истории).
+- Sprint 5 / S5-001 implementation choice: использовать одну расширенную `OrderStatusHistory` с `statusDimension = ORDER | PAYMENT | FULFILLMENT` и отдельными from/to полями для каждого измерения. Новые таблицы истории не добавлять, пока не появится отдельная потребность в разных политиках хранения/доступа.
 - Владелец-инициатор: `changedById` (после появления auth владельца в Sprint 7).
 - `StockMovement` — привязка к `orderId` / `orderItemId` / `inventoryItemId` по схеме Sprint 5.
 

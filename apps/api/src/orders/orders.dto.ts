@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayMinSize,
+  IsEmail,
   IsArray,
   IsIn,
   IsInt,
@@ -27,10 +28,32 @@ export class CreateOrderItemDto {
 }
 
 export class CreateOrderDto {
-  @ApiProperty({ type: 'string' })
+  @ApiPropertyOptional({ type: 'string', description: 'Linked customer id for non-guest orders.' })
+  @IsOptional()
   @IsString({ message: 'customerId должен быть строкой.' })
   @IsNotEmpty({ message: 'Укажите идентификатор покупателя (customerId).' })
-  customerId!: string;
+  customerId?: string;
+
+  @ApiProperty({ type: 'string', example: 'Иван Иванов' })
+  @IsString({ message: 'customerFullName должен быть строкой.' })
+  @IsNotEmpty({ message: 'Укажите ФИО покупателя (customerFullName).' })
+  customerFullName!: string;
+
+  @ApiProperty({ type: 'string', format: 'email', example: 'customer@example.com' })
+  @IsEmail({}, { message: 'customerEmail должен быть корректным email.' })
+  @IsNotEmpty({ message: 'Укажите email покупателя (customerEmail).' })
+  customerEmail!: string;
+
+  @ApiPropertyOptional({ type: 'string', example: '+995 555 010 010' })
+  @IsOptional()
+  @IsString({ message: 'customerPhone должен быть строкой.' })
+  @IsNotEmpty({ message: 'customerPhone не должен быть пустым.' })
+  customerPhone?: string;
+
+  @ApiProperty({ type: 'string', example: 'Тбилиси, ул. Руставели, 1' })
+  @IsString({ message: 'shippingAddress должен быть строкой.' })
+  @IsNotEmpty({ message: 'Укажите адрес доставки (shippingAddress).' })
+  shippingAddress!: string;
 
   @ApiProperty({ type: () => [CreateOrderItemDto] })
   @IsArray({ message: 'Список позиций (items) должен быть массивом.' })

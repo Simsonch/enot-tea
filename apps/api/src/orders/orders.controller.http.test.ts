@@ -516,6 +516,184 @@ test('PATCH /orders/:id/delivered: returns DELIVERED statuses', async () => {
   }
 });
 
+test('manual lifecycle endpoints pass optional comment payload to service', async () => {
+  const receivedComments: Record<string, string | undefined> = {};
+  const { app } = await createApp({
+    cancel: async (id, dto) => {
+      receivedComments.cancel = dto?.comment;
+      return { id, status: OrderStatus.CANCELLED, items: [], statusHistory: [] };
+    },
+    markInvoiceSent: async (id, dto) => {
+      receivedComments.invoiceSent = dto?.comment;
+      return {
+        id,
+        status: OrderStatus.CONFIRMED,
+        paymentStatus: PaymentStatus.INVOICE_SENT,
+        fulfillmentStatus: FulfillmentStatus.RESERVED,
+        items: [],
+        statusHistory: [],
+      };
+    },
+    confirmPayment: async (id, dto) => {
+      receivedComments.paymentConfirmed = dto?.comment;
+      return {
+        id,
+        status: OrderStatus.PACKED,
+        paymentStatus: PaymentStatus.PAID,
+        fulfillmentStatus: FulfillmentStatus.RESERVED,
+        items: [],
+        statusHistory: [],
+      };
+    },
+    handOffToDelivery: async (id, dto) => {
+      receivedComments.handoffToDelivery = dto?.comment;
+      return {
+        id,
+        status: OrderStatus.SHIPPED,
+        paymentStatus: PaymentStatus.PAID,
+        fulfillmentStatus: FulfillmentStatus.HANDED_TO_CARRIER,
+        items: [],
+        statusHistory: [],
+      };
+    },
+    confirmDelivered: async (id, dto) => {
+      receivedComments.delivered = dto?.comment;
+      return {
+        id,
+        status: OrderStatus.DELIVERED,
+        paymentStatus: PaymentStatus.PAID,
+        fulfillmentStatus: FulfillmentStatus.DELIVERED,
+        items: [],
+        statusHistory: [],
+      };
+    },
+  });
+
+  try {
+    await request(app.getHttpServer())
+      .patch('/orders/order-4/cancel')
+      .send({ comment: 'cancel reason' })
+      .expect(200);
+    await request(app.getHttpServer())
+      .patch('/orders/order-4/invoice-sent')
+      .send({ comment: 'invoice #100' })
+      .expect(200);
+    await request(app.getHttpServer())
+      .patch('/orders/order-4/payment-confirmed')
+      .send({ comment: 'bank transfer received' })
+      .expect(200);
+    await request(app.getHttpServer())
+      .patch('/orders/order-4/handoff-to-delivery')
+      .send({ comment: 'carrier pickup' })
+      .expect(200);
+    await request(app.getHttpServer())
+      .patch('/orders/order-4/delivered')
+      .send({ comment: 'customer confirmed' })
+      .expect(200);
+
+    assert.deepEqual(receivedComments, {
+      cancel: 'cancel reason',
+      invoiceSent: 'invoice #100',
+      paymentConfirmed: 'bank transfer received',
+      handoffToDelivery: 'carrier pickup',
+      delivered: 'customer confirmed',
+    });
+  } finally {
+    await app.close();
+  }
+});
+
+const manualLifecycleEndpointCases = [
+  {
+    path: '/orders/order-5/invoice-sent',
+    overrideName: 'markInvoiceSent',
+  },
+  {
+    path: '/orders/order-5/payment-confirmed',
+    overrideName: 'confirmPayment',
+  },
+  {
+    path: '/orders/order-5/handoff-to-delivery',
+    overrideName: 'handOffToDelivery',
+  },
+  {
+    path: '/orders/order-5/delivered',
+    overrideName: 'confirmDelivered',
+  },
+] as const;
+
+for (const { path, overrideName } of manualLifecycleEndpointCases) {
+  test(`PATCH ${path}: invalid comment payload returns 400 VALIDATION_ERROR`, async () => {
+    let serviceCalls = 0;
+    const overrides = {
+      [overrideName]: async () => {
+        serviceCalls += 1;
+        return {};
+      },
+    } as NonNullable<Parameters<typeof createApp>[0]>;
+    const { app } = await createApp(overrides);
+
+    try {
+      const response = await request(app.getHttpServer())
+        .patch(path)
+        .send({ comment: '' })
+        .expect(400);
+
+      assert.equal(response.body.code, 'VALIDATION_ERROR');
+      assert.equal(response.body.statusCode, 400);
+      assert.equal(response.body.errors[0].field, 'comment');
+      assert.equal(serviceCalls, 0);
+    } finally {
+      await app.close();
+    }
+  });
+
+  test(`PATCH ${path}: order not found returns 404`, async () => {
+    const overrides = {
+      [overrideName]: async () => {
+        throw new NotFoundException('Заказ orderId=order-5 не найден.');
+      },
+    } as NonNullable<Parameters<typeof createApp>[0]>;
+    const { app } = await createApp(overrides);
+
+    try {
+      const response = await request(app.getHttpServer())
+        .patch(path)
+        .send()
+        .expect(404);
+
+      assert.equal(response.body.statusCode, 404);
+    } finally {
+      await app.close();
+    }
+  });
+
+  test(`PATCH ${path}: invalid lifecycle transition returns 409`, async () => {
+    const overrides = {
+      [overrideName]: async () => {
+        throw new ConflictException({
+          statusCode: 409,
+          code: 'INVALID_ORDER_STATUS_TRANSITION',
+          message: 'Недопустимый переход.',
+        });
+      },
+    } as NonNullable<Parameters<typeof createApp>[0]>;
+    const { app } = await createApp(overrides);
+
+    try {
+      const response = await request(app.getHttpServer())
+        .patch(path)
+        .send()
+        .expect(409);
+
+      assert.equal(response.body.code, 'INVALID_ORDER_STATUS_TRANSITION');
+      assert.equal(response.body.statusCode, 409);
+    } finally {
+      await app.close();
+    }
+  });
+}
+
 test('PATCH /orders/:id/handoff-to-delivery: invalid lifecycle transition returns 409', async () => {
   const { app } = await createApp({
     handOffToDelivery: async () => {

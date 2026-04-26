@@ -195,6 +195,19 @@ test('OrdersService.create пишет стартовую историю стат
     items: [{ productId, quantity: 2 }],
   })) as any;
 
+  assert.deepEqual(
+    {
+      customerId: result.customerId,
+      customerFullName: result.customerFullName,
+      customerEmail: result.customerEmail,
+      customerPhone: result.customerPhone,
+      shippingAddress: result.shippingAddress,
+    },
+    {
+      customerId: null,
+      ...guestSnapshot,
+    },
+  );
   assert.equal(result.status, OrderStatus.NEW);
   assert.equal(result.paymentStatus, PaymentStatus.PENDING);
   assert.equal(result.fulfillmentStatus, FulfillmentStatus.RESERVED);
@@ -257,6 +270,147 @@ test('OrdersService.create возвращает 409 PRODUCT_INACTIVE для не
       return true;
     },
   );
+});
+
+test('OrdersService.create возвращает NotFound, если товар не найден', async () => {
+  const tx = {
+    user: {
+      findUnique: async () => {
+        throw new Error('guest order не должен читать User');
+      },
+    },
+    product: {
+      findMany: async () => [],
+    },
+    inventoryItem: {
+      findMany: async () => {
+        throw new Error('inventory не должен читаться без найденного товара');
+      },
+    },
+    order: {
+      create: async () => {
+        throw new Error('order не должен создаваться без найденного товара');
+      },
+    },
+  };
+
+  const prisma = {
+    $transaction: async (fn: (innerTx: typeof tx) => Promise<unknown>) => fn(tx),
+  } as any;
+
+  const service = new OrdersService(prisma);
+
+  await assert.rejects(
+    () =>
+      service.create({
+        ...guestSnapshot,
+        items: [{ productId: 'missing-product', quantity: 1 }],
+      }),
+    (error: unknown) => error instanceof NotFoundException,
+  );
+});
+
+test('OrdersService.create возвращает NotFound, если inventory row не найден', async () => {
+  const productId = 'product-1';
+  const tx = {
+    user: {
+      findUnique: async () => {
+        throw new Error('guest order не должен читать User');
+      },
+    },
+    product: {
+      findMany: async () => [{ id: productId, priceMinor: 100, isActive: true }],
+    },
+    inventoryItem: {
+      findMany: async () => [],
+    },
+    order: {
+      create: async () => {
+        throw new Error('order не должен создаваться без inventory row');
+      },
+    },
+  };
+
+  const prisma = {
+    $transaction: async (fn: (innerTx: typeof tx) => Promise<unknown>) => fn(tx),
+  } as any;
+
+  const service = new OrdersService(prisma);
+
+  await assert.rejects(
+    () =>
+      service.create({
+        ...guestSnapshot,
+        items: [{ productId, quantity: 1 }],
+      }),
+    (error: unknown) => error instanceof NotFoundException,
+  );
+});
+
+test('OrdersService.create возвращает 409 INSUFFICIENT_STOCK и не пишет движение', async () => {
+  const productId = 'product-1';
+  const movements: StockMovementCreate[] = [];
+  const tx = {
+    user: {
+      findUnique: async () => {
+        throw new Error('guest order не должен читать User');
+      },
+    },
+    product: {
+      findMany: async () => [{ id: productId, priceMinor: 100, isActive: true }],
+    },
+    inventoryItem: {
+      findMany: async () => [{ id: 'inventory-1', productId }],
+      findUnique: async () => ({ onHand: 1, reserved: 1 }),
+    },
+    order: {
+      create: async () => ({
+        id: 'order-insufficient-stock',
+        customerId: null,
+        ...guestSnapshot,
+        status: OrderStatus.NEW,
+        paymentStatus: PaymentStatus.PENDING,
+        fulfillmentStatus: FulfillmentStatus.RESERVED,
+        totalMinor: 100,
+        items: [
+          { id: 'item-1', productId, quantity: 1, priceMinor: 100, totalMinor: 100 },
+        ],
+        statusHistory: [],
+      }),
+    },
+    stockMovement: {
+      create: async (args: StockMovementCreate) => {
+        movements.push(args);
+        return args;
+      },
+    },
+    $executeRaw: async () => 0,
+  };
+
+  const prisma = {
+    $transaction: async (fn: (innerTx: typeof tx) => Promise<unknown>) => fn(tx),
+  } as any;
+
+  const service = new OrdersService(prisma);
+
+  await assert.rejects(
+    () =>
+      service.create({
+        ...guestSnapshot,
+        items: [{ productId, quantity: 1 }],
+      }),
+    (error: unknown) => {
+      assert.ok(error instanceof ConflictException);
+      const body = (error as ConflictException).getResponse() as {
+        code?: string;
+        details?: { productId?: string; requested?: number; available?: number };
+      };
+      assert.equal(body.code, 'INSUFFICIENT_STOCK');
+      assert.deepEqual(body.details, { productId, requested: 1, available: 0 });
+      return true;
+    },
+  );
+  assert.equal(movements.length, 0);
 });
 
 test('OrdersService.create возвращает NotFound, если заказчик не существует', async () => {

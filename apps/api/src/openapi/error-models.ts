@@ -28,7 +28,7 @@ export class ApiBusinessConflictBodyDto {
   @ApiProperty({
     type: 'string',
     example: 'INVALID_ORDER_STATUS_TRANSITION',
-    description: 'One of: INSUFFICIENT_STOCK, INVALID_ORDER_STATUS_TRANSITION, INVENTORY_INVARIANT_VIOLATION',
+    description: 'One of: INSUFFICIENT_STOCK, PRODUCT_INACTIVE, INVALID_ORDER_STATUS_TRANSITION, INVENTORY_INVARIANT_VIOLATION',
   })
   code!: string;
 

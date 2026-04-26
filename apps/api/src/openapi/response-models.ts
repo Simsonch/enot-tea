@@ -76,6 +76,9 @@ export class OrderStatusHistoryEntryDto {
   toStatus!: OrderStatus;
 
   @ApiPropertyOptional({ type: 'string', nullable: true })
+  changedById?: string | null;
+
+  @ApiPropertyOptional({ type: 'string', nullable: true })
   comment?: string | null;
 
   @ApiProperty({ type: 'string', format: 'date-time' })

@@ -1,13 +1,16 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Inject, Query } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ProductsListResponseDto } from '../openapi/response-models.js';
 import { ProductsService } from './products.service.js';
-import type { GetProductsQueryDto } from './products.dto.js';
+import { GetProductsQueryDto } from './products.dto.js';
 
 @Controller('products')
 @ApiTags('products')
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(
+    @Inject(ProductsService)
+    private readonly productsService: ProductsService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'List products with pagination' })

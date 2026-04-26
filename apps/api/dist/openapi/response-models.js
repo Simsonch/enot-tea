@@ -113,6 +113,7 @@ export class OrderStatusHistoryEntryDto {
     id;
     fromStatus;
     toStatus;
+    changedById;
     comment;
     createdAt;
 }
@@ -128,6 +129,10 @@ __decorate([
     ApiProperty({ enum: OrderStatus, enumName: 'OrderStatus' }),
     __metadata("design:type", String)
 ], OrderStatusHistoryEntryDto.prototype, "toStatus", void 0);
+__decorate([
+    ApiPropertyOptional({ type: 'string', nullable: true }),
+    __metadata("design:type", Object)
+], OrderStatusHistoryEntryDto.prototype, "changedById", void 0);
 __decorate([
     ApiPropertyOptional({ type: 'string', nullable: true }),
     __metadata("design:type", Object)

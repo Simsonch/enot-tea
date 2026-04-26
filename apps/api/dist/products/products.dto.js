@@ -8,6 +8,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform, Type } from 'class-transformer';
 import { IsBoolean, IsInt, IsOptional, Max, Min } from 'class-validator';
 export class GetProductsQueryDto {
     limit = 20;
@@ -17,6 +18,7 @@ export class GetProductsQueryDto {
 __decorate([
     ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 }),
     IsOptional(),
+    Type(() => Number),
     IsInt(),
     Min(1),
     Max(100),
@@ -25,6 +27,7 @@ __decorate([
 __decorate([
     ApiPropertyOptional({ default: 0, minimum: 0 }),
     IsOptional(),
+    Type(() => Number),
     IsInt(),
     Min(0),
     __metadata("design:type", Object)
@@ -32,6 +35,15 @@ __decorate([
 __decorate([
     ApiPropertyOptional(),
     IsOptional(),
+    Transform(({ value }) => {
+        if (value === 'true') {
+            return true;
+        }
+        if (value === 'false') {
+            return false;
+        }
+        return value;
+    }),
     IsBoolean(),
     __metadata("design:type", Boolean)
 ], GetProductsQueryDto.prototype, "isActive", void 0);

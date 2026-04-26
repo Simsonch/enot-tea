@@ -147,7 +147,7 @@
             "description": "Customer, product, or inventory row not found"
           },
           "409": {
-            "description": "Out of stock (INSUFFICIENT_STOCK)",
+            "description": "Out of stock or inactive product",
             "content": {
               "application/json": {
                 "schema": {
@@ -436,6 +436,10 @@
               }
             ]
           },
+          "changedById": {
+            "type": "string",
+            "nullable": true
+          },
           "comment": {
             "type": "string",
             "nullable": true
@@ -592,7 +596,7 @@
           "code": {
             "type": "string",
             "example": "INVALID_ORDER_STATUS_TRANSITION",
-            "description": "One of: INSUFFICIENT_STOCK, INVALID_ORDER_STATUS_TRANSITION, INVENTORY_INVARIANT_VIOLATION"
+            "description": "One of: INSUFFICIENT_STOCK, PRODUCT_INACTIVE, INVALID_ORDER_STATUS_TRANSITION, INVENTORY_INVARIANT_VIOLATION"
           },
           "message": {
             "type": "string"

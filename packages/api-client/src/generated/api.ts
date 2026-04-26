@@ -60,6 +60,8 @@ export interface OrderStatusHistoryEntryDto {
   fromStatus?: OrderStatus;
   toStatus: OrderStatus;
   /** @nullable */
+  changedById?: string | null;
+  /** @nullable */
   comment?: string | null;
   createdAt: string;
 }
@@ -102,7 +104,7 @@ export type ApiBusinessConflictBodyDtoDetails = { [key: string]: unknown };
 
 export interface ApiBusinessConflictBodyDto {
   statusCode: number;
-  /** One of: INSUFFICIENT_STOCK, INVALID_ORDER_STATUS_TRANSITION, INVENTORY_INVARIANT_VIOLATION */
+  /** One of: INSUFFICIENT_STOCK, PRODUCT_INACTIVE, INVALID_ORDER_STATUS_TRANSITION, INVENTORY_INVARIANT_VIOLATION */
   code: string;
   message: string;
   details?: ApiBusinessConflictBodyDtoDetails;

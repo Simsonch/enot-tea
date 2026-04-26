@@ -6,7 +6,7 @@
 ## Scope
 - API модуля `apps/api` для `orders`.
 - Контракты синхронизированы с реализацией `OrdersService` и текущими HTTP/service тестами.
-- Матрица является опорной для backward-compatible изменений.
+- Матрица является опорной для **текущей legacy single-status реализации до Sprint 5**. Target MVP из [ADR 0005](../adr/0005-mvp-guest-checkout-order-lifecycle.md) вводит guest checkout и отдельные статусы обработки/оплаты/fulfillment; это планируемое breaking/change-by-contract изменение и должно обновить эту матрицу одновременно с кодом.
 
 ## Domain Rules (Canonical)
 - Жизненный цикл статусов:
@@ -17,6 +17,9 @@
 - `PATCH /orders/:id/status` принимает только `CONFIRMED | PACKED | SHIPPED | DELIVERED`.
 - Отмена выполняется через `PATCH /orders/:id/cancel` (endpoint сохранен для backward compatibility).
 - Все успешные переходы статусов обязаны писать запись в `OrderStatusHistory`.
+- `changedById` в `OrderStatusHistory` остается `null`, пока в API нет auth владельца/оператора.
+- `Product.isActive = false` нельзя оформить в заказ.
+- Списание `onHand` происходит при переходе `PACKED -> SHIPPED`; создание заказа только резервирует `reserved`.
 
 ## Endpoints
 
@@ -27,8 +30,11 @@
   - `400` + `VALIDATION_ERROR` — невалидный payload.
   - `404` — `customer`/`product`/`inventory` не найден.
   - `409` + `INSUFFICIENT_STOCK` — недостаточно доступного остатка.
+  - `409` + `PRODUCT_INACTIVE` — товар найден, но `Product.isActive = false`.
 - Side effects:
-  - увеличение `reserved` по позициям заказа (в транзакции).
+  - атомарное условное увеличение `reserved` по позициям заказа: проверка доступного остатка и инкремент выполняются одним `UPDATE ... WHERE onHand - reserved >= quantity` на позицию.
+  - запись `StockMovement` с `reason = ORDER_RESERVE`, `deltaReserved = quantity`, связанная с `Order`/`OrderItem`.
+  - начальная запись в `OrderStatusHistory` (`fromStatus = null`, `toStatus = NEW`, `changedById = null`).
   - статус нового заказа: `NEW`.
 
 ### `GET /orders/:id`
@@ -48,7 +54,8 @@
   - `409` + `INVENTORY_INVARIANT_VIOLATION` — неконсистентный `reserved` при снятии резерва.
 - Side effects:
   - `reserved = reserved - quantity` для каждой позиции.
-  - запись в `OrderStatusHistory` (`fromStatus`, `toStatus`, `comment`).
+  - запись `StockMovement` с `reason = ORDER_CANCEL_RELEASE`, `deltaReserved = -quantity`, в той же транзакции.
+  - запись в `OrderStatusHistory` (`fromStatus`, `toStatus`, `comment`, `changedById = null`).
 
 ### `PATCH /orders/:id/status`
 - Allowed `toStatus`:
@@ -62,7 +69,8 @@
   - `409` + `INVENTORY_INVARIANT_VIOLATION` — нарушение инвариантов при `SHIPPED`.
 - Side effects:
   - при `SHIPPED`: `onHand = onHand - quantity`, `reserved = reserved - quantity`.
-  - для каждого успешного перехода создается запись в `OrderStatusHistory`.
+  - при `SHIPPED`: запись `StockMovement` с `reason = ORDER_SHIP`, отрицательными `deltaOnHand`/`deltaReserved`, в той же транзакции.
+  - для каждого успешного перехода создается запись в `OrderStatusHistory` (`changedById = null` до auth владельца).
 
 ## Error Contract Shape
 - Для validation и business errors используется стабильная JSON-структура:
@@ -73,13 +81,15 @@
 - Ключевые коды для `orders`:
   - `VALIDATION_ERROR`
   - `INSUFFICIENT_STOCK`
+  - `PRODUCT_INACTIVE`
   - `INVALID_ORDER_STATUS_TRANSITION`
   - `INVENTORY_INVARIANT_VIOLATION`
 
 ## Compatibility Notes
 - `PATCH /orders/:id/cancel` сохраняется для backward compatibility.
 - `PATCH /orders/:id/status` не принимает `CANCELLED` и `NEW`; отмена выполняется только через `cancel` endpoint.
-- Изменения в этой матрице допускаются только backward-compatible способом.
+- В рамках legacy single-status API изменения должны быть backward-compatible.
+- Переход к guest checkout и отдельным статусам в Sprint 5+ является запланированным контрактным изменением из ADR 0005 и не должен маскироваться как backward-compatible-only изменение.
 
 ## References
 - `docs/adr/0003-order-lifecycle-policy.md`

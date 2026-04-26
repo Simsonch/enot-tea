@@ -13,7 +13,7 @@
     "build": "tsc --noEmit",
     "gen": "orval --config orval.config.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node -e \"process.exit(0)\""
+    "test": "tsc --noEmit"
   },
   "devDependencies": {
     "orval": "^7.11.0",

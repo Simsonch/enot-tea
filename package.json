@@ -8,8 +8,13 @@
    "scripts": {
     "start:back:dev": "pnpm --filter @enot-tea/api start:dev",
     "typecheck:back": "pnpm --filter @enot-tea/api typecheck",
+    "typecheck:api-client": "pnpm --filter @enot-tea/api-client typecheck",
     "build:back": "pnpm --filter @enot-tea/api build",
     "test:back": "pnpm --filter @enot-tea/api test",
+    "openapi:export": "pnpm --filter @enot-tea/api openapi:export",
+    "api-client:gen": "pnpm --filter @enot-tea/api-client gen",
+    "api-client:regen": "pnpm openapi:export && pnpm api-client:gen",
+    "ci:verify": "pnpm typecheck:back && pnpm test:back && pnpm build:back && pnpm --filter @enot-tea/api db:validate && pnpm openapi:export && pnpm api-client:gen && pnpm typecheck:api-client",
     "dev": "pnpm -r --parallel dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",

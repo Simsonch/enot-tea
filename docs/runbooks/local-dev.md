@@ -73,6 +73,12 @@
 - `pnpm --filter "@enot-tea/api" db:studio`
 - `pnpm --filter "@enot-tea/api" db:validate` (валидация `prisma/schema.prisma` через `prisma.config` пакета)
 
+### OpenAPI и клиент для фронтенда (`@nestjs/swagger` + Orval)
+- Swagger UI: с поднятым API откройте `http://localhost:3000/api` (отключение: `SWAGGER_DISABLE=1`).
+- Экспорт спецификации в репозиторий: `pnpm openapi:export` (пишет `packages/api-client/spec/openapi.json`, без подключения к БД).
+- Генерация типобезопасного fetch-клиента: `pnpm api-client:gen` (пакет `packages/api-client`).
+- Оба шага: `pnpm api-client:regen`. Подробности: `docs/architecture/openapi-and-api-client.md`.
+
 ### Проверка API
 - `GET /` -> `API is running`
 - `GET /health/db` -> `{"status":"ok","db":"up"}`
@@ -112,6 +118,7 @@
 - `pnpm --filter "@enot-tea/api" test` — запуск unit-тестов API.
 - `pnpm --filter "@enot-tea/api" build` — сборка API.
 - `pnpm --filter "@enot-tea/api" db:validate` — проверка схемы Prisma.
+- `pnpm ci:verify` — полный gate: API + OpenAPI export + Orval + typecheck `@enot-tea/api-client` (см. `docs/testing/test-strategy.md`).
 
 ## Типовые проблемы
 - Проблема: в runbook есть команда, которой нет в проекте.

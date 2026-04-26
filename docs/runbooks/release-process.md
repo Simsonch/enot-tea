@@ -22,10 +22,14 @@
 6. **Close**: закрыть релиз или эскалировать инцидент/rollback.
 
 ## Release Gates (Mandatory, from repo root)
-- `pnpm --filter "@enot-tea/api" typecheck`
-- `pnpm --filter "@enot-tea/api" test`
-- `pnpm --filter "@enot-tea/api" build`
-- `pnpm --filter "@enot-tea/api" db:validate`
+- `pnpm ci:verify` — агрегирует проверки API, Prisma, экспорт OpenAPI и генерацию пакета `@enot-tea/api-client` (см. `docs/architecture/openapi-and-api-client.md`).
+- Раздельно (эквивалент `ci:verify` для `apps/api` + артефакты контракта):
+  - `pnpm --filter "@enot-tea/api" typecheck`
+  - `pnpm --filter "@enot-tea/api" test`
+  - `pnpm --filter "@enot-tea/api" build`
+  - `pnpm --filter "@enot-tea/api" db:validate`
+  - `pnpm openapi:export` и `pnpm api-client:gen` (или `pnpm api-client:regen`)
+  - `pnpm typecheck:api-client`
 
 ## Entry Criteria (Before Rollout)
 - [ ] Scope релиза и change list зафиксированы.

@@ -7,6 +7,7 @@
 - Текущий обязательный контур: `apps/api`.
 - Основной фокус Sprint 4: контракт и регрессии в `orders`.
 - Документ синхронизирован с release gates из `docs/runbooks/release-process.md`.
+- **Расширение (Sprint 6+):** после появления `apps/storefront`, `apps/admin` и email-уведомлений (см. [product roadmap](../product-roadmap.md), [Sprint 8 plan](../sprints/sprint-8-plan.md)) release gate дополняется smokes: гостевой checkout, ручной pipeline владельца, тестовая доставка писем; CI для фронтенд-приложений — по мере появления скриптов `build`/`test` в workspace.
 
 ## Test Pyramid
 - Unit: бизнес-правила сервисов (`OrdersService`, валидации, инварианты).

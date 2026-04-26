@@ -2,35 +2,42 @@
 
 ## Цель
 Enot Tea - это платформа электронной коммерции для продажи чайной продукции с публичной витриной и внутренней админ-панелью.
-Система закрывает ежедневные операционные задачи для клиентов, консультантов, менеджеров и владельца: каталог, заказы, склад и чат поддержки в одном месте.
-Цель MVP - запустить надежную первую версию со сквозной обработкой реальных заказов и возможностью дальнейшего расширения AI-сценариями поддержки.
+Система закрывает ежедневные операционные задачи: каталог, заказы, склад, уведомления клиенту и ручная обработка владельцем. Чат с консультантом и роли кроме владельца - после запуска MVP.
+Цель MVP (продажи) - запустить **гостевой** checkout без онлайн-оплаты, ручное подтверждение оплаты владельцем, доставка и **email-статусы**, при полноценном **складском** контуре (резерв, движения, инварианты).
+
+**Roadmap по спринтам:** [docs/product-roadmap.md](product-roadmap.md).
 
 ## Границы
-- Входит в MVP:
-  - Backend API ядра домена (каталог, заказы, складской резерв) с PostgreSQL.
-  - Схема PostgreSQL и миграции для пользователей, товаров, склада, заказов и чата.
-  - Подготовка витрины и админ-панели как следующих приложений MVP.
+- Входит в MVP (продажи):
+  - Backend API: каталог, заказы, резерв/списание склада, история и движения, guest checkout (снимок ФИО, email, адрес), раздельные статусы обработки/оплаты/fulfillment (см. [ADR 0005](adr/0005-mvp-guest-checkout-order-lifecycle.md)).
+  - `apps/storefront` - витрина, корзина, оформление заказа без регистрации.
+  - `apps/admin` - **только владелец** на старте: просмотр и ручные переходы (счет, оплата, доставка, завершение), заказ в истории.
+  - Уведомления клиенту по **email** по ключевым статусам.
+  - Схема PostgreSQL, миграции; существующие сущности `User`/чат - опциональны post-MVP для клиентов.
 - Не входит в MVP:
+  - Онлайн-оплата (платежные шлюзы).
+  - Регистрация/личный кабинет покупателя.
+  - Разделение ролей **manager** / **consultant** - после MVP; чат поддержки - после MVP, если не выбрано иначе.
   - Нативные мобильные приложения.
   - Продвинутая аналитика и BI-дашборды.
-  - Сложная оркестрация платежных шлюзов и бухгалтерские интеграции.
   - Мультисклад и мультистрановые юридические/налоговые сценарии.
   - Полностью автономный AI-агент с выполнением действий.
 
 ## Ключевые функции
-- `implemented`: health-check БД (`GET /health/db`), read API каталога (`GET /products` с пагинацией), order flow API (`POST /orders`, `GET /orders/:id`, `PATCH /orders/:id/cancel`, `PATCH /orders/:id/status`), складской резерв через `onHand/reserved`.
-- `planned`: публичная витрина (UI checkout flow), админский UI конвейер заказов, прикладная аутентификация и ролевой доступ на уровне API, production-ready чат клиента с консультантом.
+- `implemented`: health-check БД (`GET /health/db`), read API каталога (`GET /products` с пагинацией), order flow API (`POST /orders`, `GET /orders/:id`, `PATCH /orders/:id/cancel`, `PATCH /orders/:id/status`), складской резерв через `onHand/reserved` (текущая одно-enum модель; см. [ADR 0003](adr/0003-order-lifecycle-policy.md)).
+- `in_progress / planned` (MVP продаж, см. [product-roadmap](product-roadmap.md)): guest-заказ с snapshot покупателя, `Payment`/`Fulfillment` статусы, `StockMovement` и атомарный резерв, публичная витрина, админка владельца, email, аутентификация **владельца** для админки/операторских API.
+- `planned` (post-MVP): роли manager/consultant, чат, онлайн-оплата, клиентские аккаунты.
 
 ## Базовая техническая архитектура (MVP)
 - Монорепозиторий с разделением на `apps/*` (деплоимые приложения) и `packages/*` (общие контракты и библиотеки).
 - Управление workspace и зависимостями выполняется через `pnpm` (`pnpm-workspace.yaml`).
 - Целевая структура приложений: `apps/api`, `apps/storefront`, `apps/admin`; общий модуль: `packages/shared`.
 - Фактический статус реализации на текущем этапе:
-  - `apps/api` — `implemented` (NestJS API + Prisma, рабочие модули `health`, `products`, `orders`; OpenAPI через `@nestjs/swagger`, см. `docs/architecture/openapi-and-api-client.md`);
-  - `apps/storefront` — `planned` (папка создана, код приложения не реализован);
-  - `apps/admin` — `planned` (папка создана, код приложения не реализован);
-  - `packages/api-client` — `implemented` (Orval, fetch-клиент и типы по `spec/openapi.json` для будущих UI-приложений);
-  - `packages/shared` — `planned` (папка создана, общие пакеты пока не выделены).
+  - `apps/api` — `implemented` (NestJS API + Prisma, рабочие модули `health`, `products`, `orders`; OpenAPI через `@nestjs/swagger`, см. `docs/architecture/openapi-and-api-client.md`); **расширение под guest-MVP** — `planned` (Sprint 5+).
+  - `apps/storefront` — `planned` (Sprint 6; папка приложения может отсутствовать до старта спринта);
+  - `apps/admin` — `planned` (Sprint 7);
+  - `packages/api-client` — `implemented` (Orval, fetch-клиент и типы по `spec/openapi.json` для UI-приложений);
+  - `packages/shared` — `planned` (общие пакеты по мере роста фронтенда).
 - Backend в `apps/api` использует NestJS + Node.js + TypeScript с Prisma Migrate и Prisma Client для работы с PostgreSQL.
 - Базовый runtime для локальной разработки: Node `24.15.0` LTS (см. `.nvmrc`).
 - Локальная PostgreSQL-инфраструктура стандартизирована через Docker Compose в корне репозитория.

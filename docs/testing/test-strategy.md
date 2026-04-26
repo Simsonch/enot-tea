@@ -13,27 +13,27 @@
 - HTTP contract tests: boundary-контракты endpoint-ов и форматы ошибок.
 - Smoke manual/API checks: минимальный post-release контроль критичных сценариев.
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-## Mandatory Release-Gate Suite (from repo root)
-=======
->>>>>>> 57f2fac (Добавил генерацию api клиента для фронта)
 ## Mandatory Release-Gate Suite
 Из корня репозитория (эквивалент шагов ниже):
 - `pnpm ci:verify` — `typecheck` + `test` + `build` для `apps/api`, `db:validate`, экспорт OpenAPI в `packages/api-client/spec/openapi.json`, Orval-генерация `packages/api-client`, `tsc` для `@enot-tea/api-client`.
-
-Пошагово (при отладке):
-<<<<<<< HEAD
-=======
->>>>>>> 93ff425 (Добавил генерацию api клиента для фронта)
->>>>>>> 57f2fac (Добавил генерацию api клиента для фронта)
 - `pnpm --filter "@enot-tea/api" typecheck`
 - `pnpm --filter "@enot-tea/api" test` (включая `src/openapi/openapi.document.test.ts` — стабильный набор путей OpenAPI)
 - `pnpm --filter "@enot-tea/api" build`
 - `pnpm --filter "@enot-tea/api" db:validate`
 - `pnpm openapi:export` и `pnpm api-client:gen` (или `pnpm api-client:regen`)
 - `pnpm typecheck:api-client`
+
+## Release-Gate Coverage Map
+- `typecheck`:
+  - проверка типов и совместимости TS-контрактов.
+- `test`:
+  - `apps/api/src/orders/orders.service.test.ts`;
+  - `apps/api/src/orders/orders.controller.http.test.ts`;
+  - `apps/api/src/common/validation-error-format.test.ts`.
+- `build`:
+  - проверка сборки NestJS-приложения и модульных импортов.
+- `db:validate`:
+  - проверка `prisma/schema.prisma` и Prisma-конфига.
 
 ## Release-Gate Coverage Map
 - `typecheck`:

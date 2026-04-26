@@ -23,7 +23,11 @@ import {
 import { ApiBusinessConflictBodyDto, ApiValidationErrorBodyDto } from '../openapi/error-models.js';
 import { OrderResponseDto } from '../openapi/response-models.js';
 import { OrdersService } from './orders.service.js';
-import { CreateOrderDto, UpdateOrderStatusDto } from './orders.dto.js';
+import {
+  CreateOrderDto,
+  ManualOrderLifecycleTransitionDto,
+  UpdateOrderStatusDto,
+} from './orders.dto.js';
 
 @Controller('orders')
 @ApiTags('orders')
@@ -57,11 +61,73 @@ export class OrdersController {
   @Patch(':id/cancel')
   @ApiOperation({ summary: 'Cancel order' })
   @ApiParam({ name: 'id', description: 'Order id', type: String })
+  @ApiBody({ type: ManualOrderLifecycleTransitionDto, required: false })
   @ApiOkResponse({ type: OrderResponseDto })
+  @ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Invalid payload' })
   @ApiConflictResponse({ type: ApiBusinessConflictBodyDto, description: 'Invalid transition or inventory invariant' })
   @ApiNotFoundResponse({ description: 'Order or inventory not found' })
-  cancel(@Param('id') id: string) {
-    return this.ordersService.cancel(id);
+  cancel(@Param('id') id: string, @Body() dto: ManualOrderLifecycleTransitionDto = {}) {
+    return this.ordersService.cancel(id, dto);
+  }
+
+  @Patch(':id/invoice-sent')
+  @ApiOperation({ summary: 'Mark manual invoice as sent' })
+  @ApiParam({ name: 'id', description: 'Order id', type: String })
+  @ApiBody({ type: ManualOrderLifecycleTransitionDto, required: false })
+  @ApiOkResponse({ type: OrderResponseDto })
+  @ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Invalid payload' })
+  @ApiConflictResponse({ type: ApiBusinessConflictBodyDto, description: 'Invalid lifecycle transition' })
+  @ApiNotFoundResponse({ description: 'Order not found' })
+  markInvoiceSent(
+    @Param('id') id: string,
+    @Body() dto: ManualOrderLifecycleTransitionDto = {},
+  ) {
+    return this.ordersService.markInvoiceSent(id, dto);
+  }
+
+  @Patch(':id/payment-confirmed')
+  @ApiOperation({ summary: 'Confirm manual payment' })
+  @ApiParam({ name: 'id', description: 'Order id', type: String })
+  @ApiBody({ type: ManualOrderLifecycleTransitionDto, required: false })
+  @ApiOkResponse({ type: OrderResponseDto })
+  @ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Invalid payload' })
+  @ApiConflictResponse({ type: ApiBusinessConflictBodyDto, description: 'Invalid lifecycle transition' })
+  @ApiNotFoundResponse({ description: 'Order not found' })
+  confirmPayment(
+    @Param('id') id: string,
+    @Body() dto: ManualOrderLifecycleTransitionDto = {},
+  ) {
+    return this.ordersService.confirmPayment(id, dto);
+  }
+
+  @Patch(':id/handoff-to-delivery')
+  @ApiOperation({ summary: 'Hand order off to delivery and ship reserved stock' })
+  @ApiParam({ name: 'id', description: 'Order id', type: String })
+  @ApiBody({ type: ManualOrderLifecycleTransitionDto, required: false })
+  @ApiOkResponse({ type: OrderResponseDto })
+  @ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Invalid payload' })
+  @ApiConflictResponse({ type: ApiBusinessConflictBodyDto, description: 'Invalid transition or inventory invariant' })
+  @ApiNotFoundResponse({ description: 'Order or inventory not found' })
+  handOffToDelivery(
+    @Param('id') id: string,
+    @Body() dto: ManualOrderLifecycleTransitionDto = {},
+  ) {
+    return this.ordersService.handOffToDelivery(id, dto);
+  }
+
+  @Patch(':id/delivered')
+  @ApiOperation({ summary: 'Confirm customer receipt / delivery' })
+  @ApiParam({ name: 'id', description: 'Order id', type: String })
+  @ApiBody({ type: ManualOrderLifecycleTransitionDto, required: false })
+  @ApiOkResponse({ type: OrderResponseDto })
+  @ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Invalid payload' })
+  @ApiConflictResponse({ type: ApiBusinessConflictBodyDto, description: 'Invalid lifecycle transition' })
+  @ApiNotFoundResponse({ description: 'Order not found' })
+  confirmDelivered(
+    @Param('id') id: string,
+    @Body() dto: ManualOrderLifecycleTransitionDto = {},
+  ) {
+    return this.ordersService.confirmDelivered(id, dto);
   }
 
   @Patch(':id/status')

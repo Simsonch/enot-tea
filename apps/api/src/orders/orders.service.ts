@@ -13,7 +13,26 @@ import {
   type Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { type CreateOrderDto, type UpdateOrderStatusDto } from './orders.dto.js';
+import {
+  type CreateOrderDto,
+  type ManualOrderLifecycleTransitionDto,
+  type UpdateOrderStatusDto,
+} from './orders.dto.js';
+
+type OrderLifecycleState = {
+  status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  fulfillmentStatus: FulfillmentStatus;
+};
+
+type OrderLifecycleTransition = {
+  operation: string;
+  expected: OrderLifecycleState | OrderLifecycleState[];
+  next: OrderLifecycleState | ((current: OrderLifecycleState) => OrderLifecycleState);
+  comment: string;
+  shipInventory?: boolean;
+  releaseReserved?: boolean;
+};
 
 @Injectable()
 export class OrdersService {
@@ -182,10 +201,106 @@ export class OrdersService {
     });
   }
 
-  async cancel(orderId: string) {
-    return this.transitionStatus(orderId, {
-      toStatus: OrderStatus.CANCELLED,
-      comment: 'Отмена заказа',
+  async cancel(orderId: string, dto: ManualOrderLifecycleTransitionDto = {}) {
+    return this.transitionLifecycle(orderId, {
+      operation: 'cancel',
+      expected: [OrderStatus.NEW, OrderStatus.CONFIRMED, OrderStatus.PACKED].flatMap(
+        (status) =>
+          [PaymentStatus.PENDING, PaymentStatus.INVOICE_SENT, PaymentStatus.PAID].map(
+            (paymentStatus) => ({
+              status,
+              paymentStatus,
+              fulfillmentStatus: FulfillmentStatus.RESERVED,
+            }),
+          ),
+      ),
+      next: (current) => ({
+        ...current,
+        status: OrderStatus.CANCELLED,
+      }),
+      comment: dto.comment ?? 'Отмена заказа',
+      releaseReserved: true,
+    });
+  }
+
+  async markInvoiceSent(
+    orderId: string,
+    dto: ManualOrderLifecycleTransitionDto = {},
+  ) {
+    return this.transitionLifecycle(orderId, {
+      operation: 'invoice-sent',
+      expected: {
+        status: OrderStatus.NEW,
+        paymentStatus: PaymentStatus.PENDING,
+        fulfillmentStatus: FulfillmentStatus.RESERVED,
+      },
+      next: {
+        status: OrderStatus.CONFIRMED,
+        paymentStatus: PaymentStatus.INVOICE_SENT,
+        fulfillmentStatus: FulfillmentStatus.RESERVED,
+      },
+      comment: dto.comment ?? 'Счет выставлен',
+    });
+  }
+
+  async confirmPayment(
+    orderId: string,
+    dto: ManualOrderLifecycleTransitionDto = {},
+  ) {
+    return this.transitionLifecycle(orderId, {
+      operation: 'payment-confirmed',
+      expected: {
+        status: OrderStatus.CONFIRMED,
+        paymentStatus: PaymentStatus.INVOICE_SENT,
+        fulfillmentStatus: FulfillmentStatus.RESERVED,
+      },
+      next: {
+        status: OrderStatus.PACKED,
+        paymentStatus: PaymentStatus.PAID,
+        fulfillmentStatus: FulfillmentStatus.RESERVED,
+      },
+      comment: dto.comment ?? 'Оплата подтверждена',
+    });
+  }
+
+  async handOffToDelivery(
+    orderId: string,
+    dto: ManualOrderLifecycleTransitionDto = {},
+  ) {
+    return this.transitionLifecycle(orderId, {
+      operation: 'handoff-to-delivery',
+      expected: {
+        status: OrderStatus.PACKED,
+        paymentStatus: PaymentStatus.PAID,
+        fulfillmentStatus: FulfillmentStatus.RESERVED,
+      },
+      next: {
+        status: OrderStatus.SHIPPED,
+        paymentStatus: PaymentStatus.PAID,
+        fulfillmentStatus: FulfillmentStatus.HANDED_TO_CARRIER,
+      },
+      comment: dto.comment ?? 'Передано в доставку',
+      shipInventory: true,
+    });
+  }
+
+  async confirmDelivered(
+    orderId: string,
+    dto: ManualOrderLifecycleTransitionDto = {},
+  ) {
+    return this.transitionLifecycle(orderId, {
+      operation: 'delivered',
+      expected: {
+        status: OrderStatus.SHIPPED,
+        paymentStatus: PaymentStatus.PAID,
+        fulfillmentStatus: FulfillmentStatus.HANDED_TO_CARRIER,
+      },
+      next: {
+        status: OrderStatus.DELIVERED,
+        paymentStatus: PaymentStatus.PAID,
+        fulfillmentStatus: FulfillmentStatus.DELIVERED,
+      },
+      comment: dto.comment ?? 'Получение подтверждено',
     });
   }
 
@@ -332,6 +447,168 @@ export class OrdersService {
         },
       });
     });
+  }
+
+  private async transitionLifecycle(
+    orderId: string,
+    transition: OrderLifecycleTransition,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        include: {
+          items: {
+            select: {
+              id: true,
+              productId: true,
+              quantity: true,
+            },
+          },
+        },
+      });
+
+      if (!order) {
+        throw new NotFoundException(`Заказ orderId=${orderId} не найден.`);
+      }
+
+      this.ensureLifecycleTransitionAllowed(order, transition);
+      const nextState = this.getLifecycleNextState(order, transition);
+
+      if (transition.shipInventory) {
+        await this.shipItems(tx, order.id, order.items);
+      }
+
+      if (transition.releaseReserved) {
+        await this.decrementReserved(tx, order.id, order.items);
+      }
+
+      return tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: nextState.status,
+          paymentStatus: nextState.paymentStatus,
+          fulfillmentStatus: nextState.fulfillmentStatus,
+          statusHistory: {
+            create: this.buildLifecycleHistoryEntries(order, transition, nextState),
+          },
+        },
+        include: {
+          items: {
+            select: {
+              id: true,
+              productId: true,
+              quantity: true,
+              priceMinor: true,
+              totalMinor: true,
+            },
+          },
+          statusHistory: {
+            select: {
+              id: true,
+              statusDimension: true,
+              fromStatus: true,
+              toStatus: true,
+              fromPaymentStatus: true,
+              toPaymentStatus: true,
+              fromFulfillmentStatus: true,
+              toFulfillmentStatus: true,
+              changedById: true,
+              comment: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+      });
+    });
+  }
+
+  private ensureLifecycleTransitionAllowed(
+    order: OrderLifecycleState & { id: string },
+    transition: OrderLifecycleTransition,
+  ) {
+    const expectedStates = Array.isArray(transition.expected)
+      ? transition.expected
+      : [transition.expected];
+    const isAllowed = expectedStates.some((expected) =>
+      this.isLifecycleState(order, expected),
+    );
+
+    if (!isAllowed) {
+      throw new ConflictException({
+        statusCode: HttpStatus.CONFLICT,
+        code: 'INVALID_ORDER_STATUS_TRANSITION',
+        message: `Недопустимый переход lifecycle для заказа orderId=${order.id}: ${transition.operation}.`,
+        details: {
+          orderId: order.id,
+          operation: transition.operation,
+          current: {
+            status: order.status,
+            paymentStatus: order.paymentStatus,
+            fulfillmentStatus: order.fulfillmentStatus,
+          },
+          expected: transition.expected,
+          next: this.getLifecycleNextState(order, transition),
+        },
+      });
+    }
+  }
+
+  private isLifecycleState(
+    current: OrderLifecycleState,
+    expected: OrderLifecycleState,
+  ) {
+    return (
+      current.status === expected.status &&
+      current.paymentStatus === expected.paymentStatus &&
+      current.fulfillmentStatus === expected.fulfillmentStatus
+    );
+  }
+
+  private getLifecycleNextState(
+    order: OrderLifecycleState,
+    transition: OrderLifecycleTransition,
+  ) {
+    return typeof transition.next === 'function'
+      ? transition.next(order)
+      : transition.next;
+  }
+
+  private buildLifecycleHistoryEntries(
+    order: OrderLifecycleState,
+    transition: OrderLifecycleTransition,
+    nextState: OrderLifecycleState,
+  ): Prisma.OrderStatusHistoryCreateWithoutOrderInput[] {
+    const entries: Prisma.OrderStatusHistoryCreateWithoutOrderInput[] = [];
+
+    if (order.status !== nextState.status) {
+      entries.push({
+        statusDimension: OrderStatusDimension.ORDER,
+        fromStatus: order.status,
+        toStatus: nextState.status,
+        comment: transition.comment,
+      });
+    }
+
+    if (order.paymentStatus !== nextState.paymentStatus) {
+      entries.push({
+        statusDimension: OrderStatusDimension.PAYMENT,
+        fromPaymentStatus: order.paymentStatus,
+        toPaymentStatus: nextState.paymentStatus,
+        comment: transition.comment,
+      });
+    }
+
+    if (order.fulfillmentStatus !== nextState.fulfillmentStatus) {
+      entries.push({
+        statusDimension: OrderStatusDimension.FULFILLMENT,
+        fromFulfillmentStatus: order.fulfillmentStatus,
+        toFulfillmentStatus: nextState.fulfillmentStatus,
+        comment: transition.comment,
+      });
+    }
+
+    return entries;
   }
 
   private ensureTransitionAllowed(

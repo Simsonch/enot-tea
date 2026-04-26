@@ -56,6 +56,16 @@ test('OpenAPI document includes expected paths and order operations', async () =
     );
     assert.equal(idParam?.schema?.type, 'string');
     assert.ok(paths[`${orderById}/cancel`]?.patch, 'order cancel is documented');
+    assert.ok(paths[`${orderById}/invoice-sent`]?.patch, 'invoice sent is documented');
+    assert.ok(
+      paths[`${orderById}/payment-confirmed`]?.patch,
+      'payment confirmed is documented',
+    );
+    assert.ok(
+      paths[`${orderById}/handoff-to-delivery`]?.patch,
+      'handoff to delivery is documented',
+    );
+    assert.ok(paths[`${orderById}/delivered`]?.patch, 'delivered is documented');
     assert.ok(paths[`${orderById}/status`]?.patch, 'order status update is documented');
     assert.equal(document.info?.title, 'Enot Tea API');
   } finally {

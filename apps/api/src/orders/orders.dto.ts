@@ -89,3 +89,12 @@ export class UpdateOrderStatusDto {
   @MaxLength(500, { message: 'comment не должен превышать 500 символов.' })
   comment?: string;
 }
+
+export class ManualOrderLifecycleTransitionDto {
+  @ApiPropertyOptional({ type: 'string', maxLength: 500 })
+  @IsOptional()
+  @IsString({ message: 'comment должен быть строкой.' })
+  @IsNotEmpty({ message: 'comment не должен быть пустым.' })
+  @MaxLength(500, { message: 'comment не должен превышать 500 символов.' })
+  comment?: string;
+}

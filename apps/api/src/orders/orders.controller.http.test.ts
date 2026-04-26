@@ -4,19 +4,23 @@ import assert from 'node:assert/strict';
 import { BadRequestException, ConflictException, NotFoundException, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { OrderStatus } from '@prisma/client';
+import { FulfillmentStatus, OrderStatus, PaymentStatus } from '@prisma/client';
 import { OrdersController } from './orders.controller.js';
 import { OrdersService } from './orders.service.js';
-import { CreateOrderDto, UpdateOrderStatusDto } from './orders.dto.js';
+import {
+  CreateOrderDto,
+  ManualOrderLifecycleTransitionDto,
+  UpdateOrderStatusDto,
+} from './orders.dto.js';
 import { formatValidationFieldErrors } from '../common/validation-error-format.js';
 
 // `tsx` test runtime may miss design-time metadata for decorated parameters.
 // Define it explicitly so ValidationPipe can validate DTO on the API boundary.
 Reflect.defineMetadata(
   'design:paramtypes',
-  [String, UpdateOrderStatusDto],
+  [String, ManualOrderLifecycleTransitionDto],
   OrdersController.prototype,
-  'updateStatus',
+  'cancel',
 );
 Reflect.defineMetadata(
   'design:paramtypes',
@@ -24,11 +28,34 @@ Reflect.defineMetadata(
   OrdersController.prototype,
   'create',
 );
+for (const methodName of [
+  'markInvoiceSent',
+  'confirmPayment',
+  'handOffToDelivery',
+  'confirmDelivered',
+]) {
+  Reflect.defineMetadata(
+    'design:paramtypes',
+    [String, ManualOrderLifecycleTransitionDto],
+    OrdersController.prototype,
+    methodName,
+  );
+}
+Reflect.defineMetadata(
+  'design:paramtypes',
+  [String, UpdateOrderStatusDto],
+  OrdersController.prototype,
+  'updateStatus',
+);
 
 async function createApp(overrides?: {
   create?: (dto: CreateOrderDto) => Promise<unknown>;
   updateStatus?: (id: string, dto: { toStatus: OrderStatus; comment?: string }) => Promise<unknown>;
-  cancel?: (id: string) => Promise<unknown>;
+  cancel?: (id: string, dto?: ManualOrderLifecycleTransitionDto) => Promise<unknown>;
+  markInvoiceSent?: (id: string, dto?: ManualOrderLifecycleTransitionDto) => Promise<unknown>;
+  confirmPayment?: (id: string, dto?: ManualOrderLifecycleTransitionDto) => Promise<unknown>;
+  handOffToDelivery?: (id: string, dto?: ManualOrderLifecycleTransitionDto) => Promise<unknown>;
+  confirmDelivered?: (id: string, dto?: ManualOrderLifecycleTransitionDto) => Promise<unknown>;
 }) {
   let createCalls = 0;
   let updateStatusCalls = 0;
@@ -70,6 +97,46 @@ async function createApp(overrides?: {
         cancelCalls += 1;
         return { id, status: OrderStatus.CANCELLED, items: [], statusHistory: [] };
       }),
+    markInvoiceSent:
+      overrides?.markInvoiceSent ??
+      (async (id: string) => ({
+        id,
+        status: OrderStatus.CONFIRMED,
+        paymentStatus: PaymentStatus.INVOICE_SENT,
+        fulfillmentStatus: FulfillmentStatus.RESERVED,
+        items: [],
+        statusHistory: [],
+      })),
+    confirmPayment:
+      overrides?.confirmPayment ??
+      (async (id: string) => ({
+        id,
+        status: OrderStatus.PACKED,
+        paymentStatus: PaymentStatus.PAID,
+        fulfillmentStatus: FulfillmentStatus.RESERVED,
+        items: [],
+        statusHistory: [],
+      })),
+    handOffToDelivery:
+      overrides?.handOffToDelivery ??
+      (async (id: string) => ({
+        id,
+        status: OrderStatus.SHIPPED,
+        paymentStatus: PaymentStatus.PAID,
+        fulfillmentStatus: FulfillmentStatus.HANDED_TO_CARRIER,
+        items: [],
+        statusHistory: [],
+      })),
+    confirmDelivered:
+      overrides?.confirmDelivered ??
+      (async (id: string) => ({
+        id,
+        status: OrderStatus.DELIVERED,
+        paymentStatus: PaymentStatus.PAID,
+        fulfillmentStatus: FulfillmentStatus.DELIVERED,
+        items: [],
+        statusHistory: [],
+      })),
     updateStatus:
       overrides?.updateStatus ??
       (async (id: string, dto: { toStatus: OrderStatus; comment?: string }) => {
@@ -378,6 +445,95 @@ test('PATCH /orders/:id/cancel: happy path returns CANCELLED', async () => {
 
     assert.equal(response.body.id, 'order-2');
     assert.equal(response.body.status, 'CANCELLED');
+  } finally {
+    await app.close();
+  }
+});
+
+test('PATCH /orders/:id/invoice-sent: returns CONFIRMED and INVOICE_SENT', async () => {
+  const { app } = await createApp();
+
+  try {
+    const response = await request(app.getHttpServer())
+      .patch('/orders/order-3/invoice-sent')
+      .send({ comment: 'invoice #100' })
+      .expect(200);
+
+    assert.equal(response.body.id, 'order-3');
+    assert.equal(response.body.status, 'CONFIRMED');
+    assert.equal(response.body.paymentStatus, 'INVOICE_SENT');
+    assert.equal(response.body.fulfillmentStatus, 'RESERVED');
+  } finally {
+    await app.close();
+  }
+});
+
+test('PATCH /orders/:id/payment-confirmed: returns PACKED and PAID', async () => {
+  const { app } = await createApp();
+
+  try {
+    const response = await request(app.getHttpServer())
+      .patch('/orders/order-3/payment-confirmed')
+      .send()
+      .expect(200);
+
+    assert.equal(response.body.status, 'PACKED');
+    assert.equal(response.body.paymentStatus, 'PAID');
+  } finally {
+    await app.close();
+  }
+});
+
+test('PATCH /orders/:id/handoff-to-delivery: returns SHIPPED and HANDED_TO_CARRIER', async () => {
+  const { app } = await createApp();
+
+  try {
+    const response = await request(app.getHttpServer())
+      .patch('/orders/order-3/handoff-to-delivery')
+      .send()
+      .expect(200);
+
+    assert.equal(response.body.status, 'SHIPPED');
+    assert.equal(response.body.fulfillmentStatus, 'HANDED_TO_CARRIER');
+  } finally {
+    await app.close();
+  }
+});
+
+test('PATCH /orders/:id/delivered: returns DELIVERED statuses', async () => {
+  const { app } = await createApp();
+
+  try {
+    const response = await request(app.getHttpServer())
+      .patch('/orders/order-3/delivered')
+      .send()
+      .expect(200);
+
+    assert.equal(response.body.status, 'DELIVERED');
+    assert.equal(response.body.fulfillmentStatus, 'DELIVERED');
+  } finally {
+    await app.close();
+  }
+});
+
+test('PATCH /orders/:id/handoff-to-delivery: invalid lifecycle transition returns 409', async () => {
+  const { app } = await createApp({
+    handOffToDelivery: async () => {
+      throw new ConflictException({
+        statusCode: 409,
+        code: 'INVALID_ORDER_STATUS_TRANSITION',
+        message: 'Недопустимый переход.',
+      });
+    },
+  });
+
+  try {
+    const response = await request(app.getHttpServer())
+      .patch('/orders/order-3/handoff-to-delivery')
+      .send()
+      .expect(409);
+
+    assert.equal(response.body.code, 'INVALID_ORDER_STATUS_TRANSITION');
   } finally {
     await app.close();
   }

@@ -177,6 +177,16 @@
             }
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualOrderLifecycleTransitionDto"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "",
@@ -184,6 +194,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/OrderResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiValidationErrorBodyDto"
                 }
               }
             }
@@ -203,6 +223,266 @@
           }
         },
         "summary": "Cancel order",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/orders/{id}/invoice-sent": {
+      "patch": {
+        "operationId": "OrdersController_markInvoiceSent",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Order id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualOrderLifecycleTransitionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiValidationErrorBodyDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Order not found"
+          },
+          "409": {
+            "description": "Invalid lifecycle transition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBusinessConflictBodyDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Mark manual invoice as sent",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/orders/{id}/payment-confirmed": {
+      "patch": {
+        "operationId": "OrdersController_confirmPayment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Order id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualOrderLifecycleTransitionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiValidationErrorBodyDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Order not found"
+          },
+          "409": {
+            "description": "Invalid lifecycle transition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBusinessConflictBodyDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Confirm manual payment",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/orders/{id}/handoff-to-delivery": {
+      "patch": {
+        "operationId": "OrdersController_handOffToDelivery",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Order id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualOrderLifecycleTransitionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiValidationErrorBodyDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Order or inventory not found"
+          },
+          "409": {
+            "description": "Invalid transition or inventory invariant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBusinessConflictBodyDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Hand order off to delivery and ship reserved stock",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/orders/{id}/delivered": {
+      "patch": {
+        "operationId": "OrdersController_confirmDelivered",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Order id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualOrderLifecycleTransitionDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiValidationErrorBodyDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Order not found"
+          },
+          "409": {
+            "description": "Invalid lifecycle transition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBusinessConflictBodyDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Confirm customer receipt / delivery",
         "tags": [
           "orders"
         ]
@@ -732,6 +1012,15 @@
           "code",
           "message"
         ]
+      },
+      "ManualOrderLifecycleTransitionDto": {
+        "type": "object",
+        "properties": {
+          "comment": {
+            "type": "string",
+            "maxLength": 500
+          }
+        }
       },
       "UpdateOrderStatusDto": {
         "type": "object",

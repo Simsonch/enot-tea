@@ -292,6 +292,8 @@ test('OrdersService.cancel снимает резерв и пишет StockMoveme
       findUnique: async () => ({
         id: 'order-1',
         status: OrderStatus.NEW,
+        paymentStatus: PaymentStatus.PENDING,
+        fulfillmentStatus: FulfillmentStatus.RESERVED,
         items: [{ id: 'item-1', productId: 'product-1', quantity: 2 }],
       }),
       update: async (args: unknown) => args,
@@ -336,7 +338,253 @@ test('OrdersService.cancel снимает резерв и пишет StockMoveme
     },
   });
   assert.equal(result.data.status, OrderStatus.CANCELLED);
-  assert.equal(result.data.statusHistory.create.toStatus, OrderStatus.CANCELLED);
+  assert.equal(result.data.paymentStatus, PaymentStatus.PENDING);
+  assert.equal(result.data.fulfillmentStatus, FulfillmentStatus.RESERVED);
+  assert.deepEqual(result.data.statusHistory.create, [
+    {
+      statusDimension: OrderStatusDimension.ORDER,
+      fromStatus: OrderStatus.NEW,
+      toStatus: OrderStatus.CANCELLED,
+      comment: 'Отмена заказа',
+    },
+  ]);
+});
+
+test('OrdersService.cancel допускает legacy not-shipped комбинацию и сохраняет paymentStatus', async () => {
+  const tx = {
+    order: {
+      findUnique: async () => ({
+        id: 'order-legacy-cancel',
+        status: OrderStatus.CONFIRMED,
+        paymentStatus: PaymentStatus.PENDING,
+        fulfillmentStatus: FulfillmentStatus.RESERVED,
+        items: [{ id: 'item-1', productId: 'product-1', quantity: 1 }],
+      }),
+      update: async (args: unknown) => args,
+    },
+    inventoryItem: {
+      findUnique: async () => ({ id: 'inventory-1', productId: 'product-1', reserved: 1 }),
+      updateMany: async () => ({ count: 1 }),
+    },
+    stockMovement: {
+      create: async (args: StockMovementCreate) => args,
+    },
+  };
+
+  const prisma = {
+    $transaction: async (fn: (innerTx: typeof tx) => Promise<unknown>) => fn(tx),
+  } as any;
+
+  const service = new OrdersService(prisma);
+  const result = (await service.cancel('order-legacy-cancel')) as any;
+
+  assert.equal(result.data.status, OrderStatus.CANCELLED);
+  assert.equal(result.data.paymentStatus, PaymentStatus.PENDING);
+});
+
+test('OrdersService.markInvoiceSent обновляет order/payment статусы и пишет историю', async () => {
+  const tx = {
+    order: {
+      findUnique: async () => ({
+        id: 'order-invoice',
+        status: OrderStatus.NEW,
+        paymentStatus: PaymentStatus.PENDING,
+        fulfillmentStatus: FulfillmentStatus.RESERVED,
+        items: [{ id: 'item-1', productId: 'product-1', quantity: 1 }],
+      }),
+      update: async (args: unknown) => args,
+    },
+  };
+
+  const prisma = {
+    $transaction: async (fn: (innerTx: typeof tx) => Promise<unknown>) => fn(tx),
+  } as any;
+
+  const service = new OrdersService(prisma);
+  const result = (await service.markInvoiceSent('order-invoice')) as any;
+
+  assert.equal(result.data.status, OrderStatus.CONFIRMED);
+  assert.equal(result.data.paymentStatus, PaymentStatus.INVOICE_SENT);
+  assert.equal(result.data.fulfillmentStatus, FulfillmentStatus.RESERVED);
+  assert.deepEqual(result.data.statusHistory.create, [
+    {
+      statusDimension: OrderStatusDimension.ORDER,
+      fromStatus: OrderStatus.NEW,
+      toStatus: OrderStatus.CONFIRMED,
+      comment: 'Счет выставлен',
+    },
+    {
+      statusDimension: OrderStatusDimension.PAYMENT,
+      fromPaymentStatus: PaymentStatus.PENDING,
+      toPaymentStatus: PaymentStatus.INVOICE_SENT,
+      comment: 'Счет выставлен',
+    },
+  ]);
+});
+
+test('OrdersService.confirmPayment переводит заказ в PAID/PACKED без изменений склада', async () => {
+  let inventoryUpdateCalls = 0;
+  const tx = {
+    order: {
+      findUnique: async () => ({
+        id: 'order-paid',
+        status: OrderStatus.CONFIRMED,
+        paymentStatus: PaymentStatus.INVOICE_SENT,
+        fulfillmentStatus: FulfillmentStatus.RESERVED,
+        items: [{ id: 'item-1', productId: 'product-1', quantity: 1 }],
+      }),
+      update: async (args: unknown) => args,
+    },
+    inventoryItem: {
+      updateMany: async () => {
+        inventoryUpdateCalls += 1;
+        return { count: 1 };
+      },
+    },
+  };
+
+  const prisma = {
+    $transaction: async (fn: (innerTx: typeof tx) => Promise<unknown>) => fn(tx),
+  } as any;
+
+  const service = new OrdersService(prisma);
+  const result = (await service.confirmPayment('order-paid')) as any;
+
+  assert.equal(inventoryUpdateCalls, 0);
+  assert.equal(result.data.status, OrderStatus.PACKED);
+  assert.equal(result.data.paymentStatus, PaymentStatus.PAID);
+});
+
+test('OrdersService.handOffToDelivery списывает склад и пишет fulfillment историю', async () => {
+  const inventoryUpdates: unknown[] = [];
+  const movements: StockMovementCreate[] = [];
+
+  const tx = {
+    order: {
+      findUnique: async () => ({
+        id: 'order-handoff',
+        status: OrderStatus.PACKED,
+        paymentStatus: PaymentStatus.PAID,
+        fulfillmentStatus: FulfillmentStatus.RESERVED,
+        items: [{ id: 'item-1', productId: 'product-1', quantity: 2 }],
+      }),
+      update: async (args: unknown) => args,
+    },
+    inventoryItem: {
+      findUnique: async () => ({
+        id: 'inventory-1',
+        productId: 'product-1',
+        onHand: 5,
+        reserved: 2,
+      }),
+      updateMany: async (args: unknown) => {
+        inventoryUpdates.push(args);
+        return { count: 1 };
+      },
+    },
+    stockMovement: {
+      create: async (args: StockMovementCreate) => {
+        movements.push(args);
+        return args;
+      },
+    },
+  };
+
+  const prisma = {
+    $transaction: async (fn: (innerTx: typeof tx) => Promise<unknown>) => fn(tx),
+  } as any;
+
+  const service = new OrdersService(prisma);
+  const result = (await service.handOffToDelivery('order-handoff')) as any;
+
+  assert.deepEqual(inventoryUpdates[0], {
+    where: {
+      id: 'inventory-1',
+      onHand: { gte: 2 },
+      reserved: { gte: 2 },
+    },
+    data: {
+      onHand: { decrement: 2 },
+      reserved: { decrement: 2 },
+    },
+  });
+  assert.equal(movements[0]?.data.reason, 'ORDER_SHIP');
+  assert.equal(result.data.status, OrderStatus.SHIPPED);
+  assert.equal(result.data.fulfillmentStatus, FulfillmentStatus.HANDED_TO_CARRIER);
+  assert.deepEqual(result.data.statusHistory.create, [
+    {
+      statusDimension: OrderStatusDimension.ORDER,
+      fromStatus: OrderStatus.PACKED,
+      toStatus: OrderStatus.SHIPPED,
+      comment: 'Передано в доставку',
+    },
+    {
+      statusDimension: OrderStatusDimension.FULFILLMENT,
+      fromFulfillmentStatus: FulfillmentStatus.RESERVED,
+      toFulfillmentStatus: FulfillmentStatus.HANDED_TO_CARRIER,
+      comment: 'Передано в доставку',
+    },
+  ]);
+});
+
+test('OrdersService.confirmDelivered подтверждает получение без изменений склада', async () => {
+  let inventoryUpdateCalls = 0;
+  const tx = {
+    order: {
+      findUnique: async () => ({
+        id: 'order-delivered',
+        status: OrderStatus.SHIPPED,
+        paymentStatus: PaymentStatus.PAID,
+        fulfillmentStatus: FulfillmentStatus.HANDED_TO_CARRIER,
+        items: [{ id: 'item-1', productId: 'product-1', quantity: 1 }],
+      }),
+      update: async (args: unknown) => args,
+    },
+    inventoryItem: {
+      updateMany: async () => {
+        inventoryUpdateCalls += 1;
+        return { count: 1 };
+      },
+    },
+  };
+
+  const prisma = {
+    $transaction: async (fn: (innerTx: typeof tx) => Promise<unknown>) => fn(tx),
+  } as any;
+
+  const service = new OrdersService(prisma);
+  const result = (await service.confirmDelivered('order-delivered')) as any;
+
+  assert.equal(inventoryUpdateCalls, 0);
+  assert.equal(result.data.status, OrderStatus.DELIVERED);
+  assert.equal(result.data.fulfillmentStatus, FulfillmentStatus.DELIVERED);
+});
+
+test('OrdersService.handOffToDelivery возвращает 409 для неоплаченного заказа', async () => {
+  const tx = {
+    order: {
+      findUnique: async () => ({
+        id: 'order-unpaid',
+        status: OrderStatus.CONFIRMED,
+        paymentStatus: PaymentStatus.INVOICE_SENT,
+        fulfillmentStatus: FulfillmentStatus.RESERVED,
+        items: [{ id: 'item-1', productId: 'product-1', quantity: 1 }],
+      }),
+    },
+  };
+
+  const prisma = {
+    $transaction: async (fn: (innerTx: typeof tx) => Promise<unknown>) => fn(tx),
+  } as any;
+
+  const service = new OrdersService(prisma);
+
+  await assert.rejects(() => service.handOffToDelivery('order-unpaid'), (error: unknown) => {
+    assert.ok(error instanceof ConflictException);
+    const body = (error as ConflictException).getResponse() as { code?: string };
+    assert.equal(body.code, 'INVALID_ORDER_STATUS_TRANSITION');
+    return true;
+  });
 });
 
 test('OrdersService.updateStatus выполняет PACKED -> SHIPPED и пишет StockMovement', async () => {
@@ -507,6 +755,8 @@ test('OrdersService.cancel возвращает конфликт при нару
       findUnique: async () => ({
         id: 'order-13',
         status: OrderStatus.NEW,
+        paymentStatus: PaymentStatus.PENDING,
+        fulfillmentStatus: FulfillmentStatus.RESERVED,
         items: [{ id: 'item-1', productId: 'product-1', quantity: 2 }],
       }),
     },

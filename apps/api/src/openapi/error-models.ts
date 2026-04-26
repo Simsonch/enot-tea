@@ -38,3 +38,17 @@ export class ApiBusinessConflictBodyDto {
   @ApiPropertyOptional({ type: 'object', additionalProperties: true })
   details?: Record<string, unknown>;
 }
+
+/**
+ * 404: default NestJS not-found response used by service guards.
+ */
+export class ApiNotFoundErrorBodyDto {
+  @ApiProperty({ type: 'number', example: 404 })
+  statusCode!: number;
+
+  @ApiProperty({ type: 'string', example: 'Заказ orderId=order-1 не найден.' })
+  message!: string;
+
+  @ApiProperty({ type: 'string', example: 'Not Found' })
+  error!: string;
+}

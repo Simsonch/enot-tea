@@ -122,32 +122,35 @@ export interface OrderStatusHistoryEntryDto {
   id: string;
   statusDimension: OrderStatusDimension;
   /** @nullable */
-  fromStatus?: OrderStatusHistoryEntryDtoFromStatus;
+  fromStatus: OrderStatusHistoryEntryDtoFromStatus;
   /** @nullable */
-  toStatus?: OrderStatusHistoryEntryDtoToStatus;
+  toStatus: OrderStatusHistoryEntryDtoToStatus;
   /** @nullable */
-  fromPaymentStatus?: OrderStatusHistoryEntryDtoFromPaymentStatus;
+  fromPaymentStatus: OrderStatusHistoryEntryDtoFromPaymentStatus;
   /** @nullable */
-  toPaymentStatus?: OrderStatusHistoryEntryDtoToPaymentStatus;
+  toPaymentStatus: OrderStatusHistoryEntryDtoToPaymentStatus;
   /** @nullable */
-  fromFulfillmentStatus?: OrderStatusHistoryEntryDtoFromFulfillmentStatus;
+  fromFulfillmentStatus: OrderStatusHistoryEntryDtoFromFulfillmentStatus;
   /** @nullable */
-  toFulfillmentStatus?: OrderStatusHistoryEntryDtoToFulfillmentStatus;
+  toFulfillmentStatus: OrderStatusHistoryEntryDtoToFulfillmentStatus;
   /** @nullable */
-  changedById?: string | null;
+  changedById: string | null;
   /** @nullable */
-  comment?: string | null;
+  comment: string | null;
   createdAt: string;
 }
 
 export interface OrderResponseDto {
   id: string;
-  /** @nullable */
-  customerId?: string | null;
+  /**
+   * Linked customer id; null for guest checkout orders.
+   * @nullable
+   */
+  customerId: string | null;
   customerFullName: string;
   customerEmail: string;
   /** @nullable */
-  customerPhone?: string | null;
+  customerPhone: string | null;
   shippingAddress: string;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
@@ -156,22 +159,34 @@ export interface OrderResponseDto {
   createdAt: string;
   updatedAt: string;
   items: OrderItemResponseDto[];
-  statusHistory?: OrderStatusHistoryEntryDto[];
+  statusHistory: OrderStatusHistoryEntryDto[];
+}
+
+export interface ApiNotFoundErrorBodyDto {
+  statusCode: number;
+  message: string;
+  error: string;
 }
 
 export interface CreateOrderItemDto {
+  /** Product id from the public catalog. */
   productId: string;
   /** @minimum 1 */
   quantity: number;
 }
 
 export interface CreateOrderDto {
-  /** Linked customer id for non-guest orders. */
+  /** Optional linked customer id for non-guest orders; omit for guest checkout. */
   customerId?: string;
+  /** Guest/customer name snapshot stored on the order. */
   customerFullName: string;
+  /** Guest/customer email snapshot stored on the order. */
   customerEmail: string;
+  /** Optional phone snapshot. */
   customerPhone?: string;
+  /** Shipping address snapshot stored on the order. */
   shippingAddress: string;
+  /** @minItems 1 */
   items: CreateOrderItemDto[];
 }
 
@@ -195,6 +210,11 @@ export interface ApiBusinessConflictBodyDto {
   code: string;
   message: string;
   details?: ApiBusinessConflictBodyDtoDetails;
+}
+
+export interface ManualOrderLifecycleTransitionDto {
+  /** @maxLength 500 */
+  comment?: string;
 }
 
 /**
@@ -323,7 +343,7 @@ export const productsControllerList = async (params?: ProductsControllerListPara
 
 
 /**
- * @summary Get order with items and status history
+ * @summary Get order with guest snapshot, items, statuses, and history
  */
 export type ordersControllerGetByIdResponse200 = {
   data: OrderResponseDto
@@ -331,7 +351,7 @@ export type ordersControllerGetByIdResponse200 = {
 }
 
 export type ordersControllerGetByIdResponse404 = {
-  data: void
+  data: ApiNotFoundErrorBodyDto
   status: 404
 }
     
@@ -372,7 +392,8 @@ export const ordersControllerGetById = async (id: string, options?: RequestInit)
 
 
 /**
- * @summary Create order and reserve stock
+ * ADR 0005 public contract: customer snapshot fields are required; customerId is optional for linked non-guest orders.
+ * @summary Create guest checkout order and reserve stock
  */
 export type ordersControllerCreateResponse201 = {
   data: OrderResponseDto
@@ -385,7 +406,7 @@ export type ordersControllerCreateResponse400 = {
 }
 
 export type ordersControllerCreateResponse404 = {
-  data: void
+  data: ApiNotFoundErrorBodyDto
   status: 404
 }
 
@@ -432,15 +453,20 @@ export const ordersControllerCreate = async (createOrderDto: CreateOrderDto, opt
 
 
 /**
- * @summary Cancel order
+ * @summary Cancel not-yet-shipped order and release reserved stock
  */
 export type ordersControllerCancelResponse200 = {
   data: OrderResponseDto
   status: 200
 }
 
+export type ordersControllerCancelResponse400 = {
+  data: ApiValidationErrorBodyDto
+  status: 400
+}
+
 export type ordersControllerCancelResponse404 = {
-  data: void
+  data: ApiNotFoundErrorBodyDto
   status: 404
 }
 
@@ -452,7 +478,7 @@ export type ordersControllerCancelResponse409 = {
 export type ordersControllerCancelResponseSuccess = (ordersControllerCancelResponse200) & {
   headers: Headers;
 };
-export type ordersControllerCancelResponseError = (ordersControllerCancelResponse404 | ordersControllerCancelResponse409) & {
+export type ordersControllerCancelResponseError = (ordersControllerCancelResponse400 | ordersControllerCancelResponse404 | ordersControllerCancelResponse409) & {
   headers: Headers;
 };
 
@@ -466,14 +492,16 @@ export const getOrdersControllerCancelUrl = (id: string,) => {
   return `/orders/${id}/cancel`
 }
 
-export const ordersControllerCancel = async (id: string, options?: RequestInit): Promise<ordersControllerCancelResponse> => {
+export const ordersControllerCancel = async (id: string,
+    manualOrderLifecycleTransitionDto?: ManualOrderLifecycleTransitionDto, options?: RequestInit): Promise<ordersControllerCancelResponse> => {
   
   const res = await fetch(getOrdersControllerCancelUrl(id),
   {      
     ...options,
-    method: 'PATCH'
-    
-    
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      manualOrderLifecycleTransitionDto,)
   }
 )
 
@@ -486,7 +514,251 @@ export const ordersControllerCancel = async (id: string, options?: RequestInit):
 
 
 /**
- * @summary Update order status
+ * @summary Mark manual invoice as sent
+ */
+export type ordersControllerMarkInvoiceSentResponse200 = {
+  data: OrderResponseDto
+  status: 200
+}
+
+export type ordersControllerMarkInvoiceSentResponse400 = {
+  data: ApiValidationErrorBodyDto
+  status: 400
+}
+
+export type ordersControllerMarkInvoiceSentResponse404 = {
+  data: ApiNotFoundErrorBodyDto
+  status: 404
+}
+
+export type ordersControllerMarkInvoiceSentResponse409 = {
+  data: ApiBusinessConflictBodyDto
+  status: 409
+}
+    
+export type ordersControllerMarkInvoiceSentResponseSuccess = (ordersControllerMarkInvoiceSentResponse200) & {
+  headers: Headers;
+};
+export type ordersControllerMarkInvoiceSentResponseError = (ordersControllerMarkInvoiceSentResponse400 | ordersControllerMarkInvoiceSentResponse404 | ordersControllerMarkInvoiceSentResponse409) & {
+  headers: Headers;
+};
+
+export type ordersControllerMarkInvoiceSentResponse = (ordersControllerMarkInvoiceSentResponseSuccess | ordersControllerMarkInvoiceSentResponseError)
+
+export const getOrdersControllerMarkInvoiceSentUrl = (id: string,) => {
+
+
+  
+
+  return `/orders/${id}/invoice-sent`
+}
+
+export const ordersControllerMarkInvoiceSent = async (id: string,
+    manualOrderLifecycleTransitionDto?: ManualOrderLifecycleTransitionDto, options?: RequestInit): Promise<ordersControllerMarkInvoiceSentResponse> => {
+  
+  const res = await fetch(getOrdersControllerMarkInvoiceSentUrl(id),
+  {      
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      manualOrderLifecycleTransitionDto,)
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: ordersControllerMarkInvoiceSentResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as ordersControllerMarkInvoiceSentResponse
+}
+
+
+
+/**
+ * @summary Confirm manual payment
+ */
+export type ordersControllerConfirmPaymentResponse200 = {
+  data: OrderResponseDto
+  status: 200
+}
+
+export type ordersControllerConfirmPaymentResponse400 = {
+  data: ApiValidationErrorBodyDto
+  status: 400
+}
+
+export type ordersControllerConfirmPaymentResponse404 = {
+  data: ApiNotFoundErrorBodyDto
+  status: 404
+}
+
+export type ordersControllerConfirmPaymentResponse409 = {
+  data: ApiBusinessConflictBodyDto
+  status: 409
+}
+    
+export type ordersControllerConfirmPaymentResponseSuccess = (ordersControllerConfirmPaymentResponse200) & {
+  headers: Headers;
+};
+export type ordersControllerConfirmPaymentResponseError = (ordersControllerConfirmPaymentResponse400 | ordersControllerConfirmPaymentResponse404 | ordersControllerConfirmPaymentResponse409) & {
+  headers: Headers;
+};
+
+export type ordersControllerConfirmPaymentResponse = (ordersControllerConfirmPaymentResponseSuccess | ordersControllerConfirmPaymentResponseError)
+
+export const getOrdersControllerConfirmPaymentUrl = (id: string,) => {
+
+
+  
+
+  return `/orders/${id}/payment-confirmed`
+}
+
+export const ordersControllerConfirmPayment = async (id: string,
+    manualOrderLifecycleTransitionDto?: ManualOrderLifecycleTransitionDto, options?: RequestInit): Promise<ordersControllerConfirmPaymentResponse> => {
+  
+  const res = await fetch(getOrdersControllerConfirmPaymentUrl(id),
+  {      
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      manualOrderLifecycleTransitionDto,)
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: ordersControllerConfirmPaymentResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as ordersControllerConfirmPaymentResponse
+}
+
+
+
+/**
+ * @summary Hand order off to delivery and decrement onHand/reserved stock
+ */
+export type ordersControllerHandOffToDeliveryResponse200 = {
+  data: OrderResponseDto
+  status: 200
+}
+
+export type ordersControllerHandOffToDeliveryResponse400 = {
+  data: ApiValidationErrorBodyDto
+  status: 400
+}
+
+export type ordersControllerHandOffToDeliveryResponse404 = {
+  data: ApiNotFoundErrorBodyDto
+  status: 404
+}
+
+export type ordersControllerHandOffToDeliveryResponse409 = {
+  data: ApiBusinessConflictBodyDto
+  status: 409
+}
+    
+export type ordersControllerHandOffToDeliveryResponseSuccess = (ordersControllerHandOffToDeliveryResponse200) & {
+  headers: Headers;
+};
+export type ordersControllerHandOffToDeliveryResponseError = (ordersControllerHandOffToDeliveryResponse400 | ordersControllerHandOffToDeliveryResponse404 | ordersControllerHandOffToDeliveryResponse409) & {
+  headers: Headers;
+};
+
+export type ordersControllerHandOffToDeliveryResponse = (ordersControllerHandOffToDeliveryResponseSuccess | ordersControllerHandOffToDeliveryResponseError)
+
+export const getOrdersControllerHandOffToDeliveryUrl = (id: string,) => {
+
+
+  
+
+  return `/orders/${id}/handoff-to-delivery`
+}
+
+export const ordersControllerHandOffToDelivery = async (id: string,
+    manualOrderLifecycleTransitionDto?: ManualOrderLifecycleTransitionDto, options?: RequestInit): Promise<ordersControllerHandOffToDeliveryResponse> => {
+  
+  const res = await fetch(getOrdersControllerHandOffToDeliveryUrl(id),
+  {      
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      manualOrderLifecycleTransitionDto,)
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: ordersControllerHandOffToDeliveryResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as ordersControllerHandOffToDeliveryResponse
+}
+
+
+
+/**
+ * @summary Confirm customer receipt / delivery
+ */
+export type ordersControllerConfirmDeliveredResponse200 = {
+  data: OrderResponseDto
+  status: 200
+}
+
+export type ordersControllerConfirmDeliveredResponse400 = {
+  data: ApiValidationErrorBodyDto
+  status: 400
+}
+
+export type ordersControllerConfirmDeliveredResponse404 = {
+  data: ApiNotFoundErrorBodyDto
+  status: 404
+}
+
+export type ordersControllerConfirmDeliveredResponse409 = {
+  data: ApiBusinessConflictBodyDto
+  status: 409
+}
+    
+export type ordersControllerConfirmDeliveredResponseSuccess = (ordersControllerConfirmDeliveredResponse200) & {
+  headers: Headers;
+};
+export type ordersControllerConfirmDeliveredResponseError = (ordersControllerConfirmDeliveredResponse400 | ordersControllerConfirmDeliveredResponse404 | ordersControllerConfirmDeliveredResponse409) & {
+  headers: Headers;
+};
+
+export type ordersControllerConfirmDeliveredResponse = (ordersControllerConfirmDeliveredResponseSuccess | ordersControllerConfirmDeliveredResponseError)
+
+export const getOrdersControllerConfirmDeliveredUrl = (id: string,) => {
+
+
+  
+
+  return `/orders/${id}/delivered`
+}
+
+export const ordersControllerConfirmDelivered = async (id: string,
+    manualOrderLifecycleTransitionDto?: ManualOrderLifecycleTransitionDto, options?: RequestInit): Promise<ordersControllerConfirmDeliveredResponse> => {
+  
+  const res = await fetch(getOrdersControllerConfirmDeliveredUrl(id),
+  {      
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      manualOrderLifecycleTransitionDto,)
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+  
+  const data: ordersControllerConfirmDeliveredResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as ordersControllerConfirmDeliveredResponse
+}
+
+
+
+/**
+ * @summary Legacy single-status transition endpoint
  */
 export type ordersControllerUpdateStatusResponse200 = {
   data: OrderResponseDto
@@ -499,7 +771,7 @@ export type ordersControllerUpdateStatusResponse400 = {
 }
 
 export type ordersControllerUpdateStatusResponse404 = {
-  data: void
+  data: ApiNotFoundErrorBodyDto
   status: 404
 }
 

@@ -12,10 +12,10 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Param, Patch, Post, } from '@nestjs/common';
 import { ApiBadRequestResponse, ApiBody, ApiConflictResponse, ApiCreatedResponse, ApiNotFoundResponse, ApiOkResponse, ApiOperation, ApiParam, ApiTags, } from '@nestjs/swagger';
-import { ApiBusinessConflictBodyDto, ApiValidationErrorBodyDto } from '../openapi/error-models.js';
+import { ApiBusinessConflictBodyDto, ApiNotFoundErrorBodyDto, ApiValidationErrorBodyDto, } from '../openapi/error-models.js';
 import { OrderResponseDto } from '../openapi/response-models.js';
 import { OrdersService } from './orders.service.js';
-import { CreateOrderDto, UpdateOrderStatusDto } from './orders.dto.js';
+import { CreateOrderDto, ManualOrderLifecycleTransitionDto, UpdateOrderStatusDto, } from './orders.dto.js';
 let OrdersController = class OrdersController {
     ordersService;
     constructor(ordersService) {
@@ -27,8 +27,20 @@ let OrdersController = class OrdersController {
     create(dto) {
         return this.ordersService.create(dto);
     }
-    cancel(id) {
-        return this.ordersService.cancel(id);
+    cancel(id, dto = {}) {
+        return this.ordersService.cancel(id, dto);
+    }
+    markInvoiceSent(id, dto = {}) {
+        return this.ordersService.markInvoiceSent(id, dto);
+    }
+    confirmPayment(id, dto = {}) {
+        return this.ordersService.confirmPayment(id, dto);
+    }
+    handOffToDelivery(id, dto = {}) {
+        return this.ordersService.handOffToDelivery(id, dto);
+    }
+    confirmDelivered(id, dto = {}) {
+        return this.ordersService.confirmDelivered(id, dto);
     }
     updateStatus(id, dto) {
         return this.ordersService.updateStatus(id, dto);
@@ -36,10 +48,10 @@ let OrdersController = class OrdersController {
 };
 __decorate([
     Get(':id'),
-    ApiOperation({ summary: 'Get order with items and status history' }),
+    ApiOperation({ summary: 'Get order with guest snapshot, items, statuses, and history' }),
     ApiParam({ name: 'id', description: 'Order id', type: String }),
     ApiOkResponse({ type: OrderResponseDto }),
-    ApiNotFoundResponse({ description: 'Order not found' }),
+    ApiNotFoundResponse({ type: ApiNotFoundErrorBodyDto, description: 'Order not found' }),
     __param(0, Param('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
@@ -48,12 +60,18 @@ __decorate([
 __decorate([
     Post(),
     HttpCode(HttpStatus.CREATED),
-    ApiOperation({ summary: 'Create order and reserve stock' }),
+    ApiOperation({
+        summary: 'Create guest checkout order and reserve stock',
+        description: 'ADR 0005 public contract: customer snapshot fields are required; customerId is optional for linked non-guest orders.',
+    }),
     ApiBody({ type: CreateOrderDto }),
     ApiCreatedResponse({ type: OrderResponseDto }),
     ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Invalid payload' }),
     ApiConflictResponse({ type: ApiBusinessConflictBodyDto, description: 'Out of stock or inactive product' }),
-    ApiNotFoundResponse({ description: 'Customer, product, or inventory row not found' }),
+    ApiNotFoundResponse({
+        type: ApiNotFoundErrorBodyDto,
+        description: 'Customer, product, or inventory row not found',
+    }),
     __param(0, Body()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [CreateOrderDto]),
@@ -61,25 +79,88 @@ __decorate([
 ], OrdersController.prototype, "create", null);
 __decorate([
     Patch(':id/cancel'),
-    ApiOperation({ summary: 'Cancel order' }),
+    ApiOperation({ summary: 'Cancel not-yet-shipped order and release reserved stock' }),
     ApiParam({ name: 'id', description: 'Order id', type: String }),
+    ApiBody({ type: ManualOrderLifecycleTransitionDto, required: false }),
     ApiOkResponse({ type: OrderResponseDto }),
+    ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Invalid payload' }),
     ApiConflictResponse({ type: ApiBusinessConflictBodyDto, description: 'Invalid transition or inventory invariant' }),
-    ApiNotFoundResponse({ description: 'Order or inventory not found' }),
+    ApiNotFoundResponse({ type: ApiNotFoundErrorBodyDto, description: 'Order or inventory not found' }),
     __param(0, Param('id')),
+    __param(1, Body()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, ManualOrderLifecycleTransitionDto]),
     __metadata("design:returntype", void 0)
 ], OrdersController.prototype, "cancel", null);
 __decorate([
+    Patch(':id/invoice-sent'),
+    ApiOperation({ summary: 'Mark manual invoice as sent' }),
+    ApiParam({ name: 'id', description: 'Order id', type: String }),
+    ApiBody({ type: ManualOrderLifecycleTransitionDto, required: false }),
+    ApiOkResponse({ type: OrderResponseDto }),
+    ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Invalid payload' }),
+    ApiConflictResponse({ type: ApiBusinessConflictBodyDto, description: 'Invalid lifecycle transition' }),
+    ApiNotFoundResponse({ type: ApiNotFoundErrorBodyDto, description: 'Order not found' }),
+    __param(0, Param('id')),
+    __param(1, Body()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, ManualOrderLifecycleTransitionDto]),
+    __metadata("design:returntype", void 0)
+], OrdersController.prototype, "markInvoiceSent", null);
+__decorate([
+    Patch(':id/payment-confirmed'),
+    ApiOperation({ summary: 'Confirm manual payment' }),
+    ApiParam({ name: 'id', description: 'Order id', type: String }),
+    ApiBody({ type: ManualOrderLifecycleTransitionDto, required: false }),
+    ApiOkResponse({ type: OrderResponseDto }),
+    ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Invalid payload' }),
+    ApiConflictResponse({ type: ApiBusinessConflictBodyDto, description: 'Invalid lifecycle transition' }),
+    ApiNotFoundResponse({ type: ApiNotFoundErrorBodyDto, description: 'Order not found' }),
+    __param(0, Param('id')),
+    __param(1, Body()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, ManualOrderLifecycleTransitionDto]),
+    __metadata("design:returntype", void 0)
+], OrdersController.prototype, "confirmPayment", null);
+__decorate([
+    Patch(':id/handoff-to-delivery'),
+    ApiOperation({ summary: 'Hand order off to delivery and decrement onHand/reserved stock' }),
+    ApiParam({ name: 'id', description: 'Order id', type: String }),
+    ApiBody({ type: ManualOrderLifecycleTransitionDto, required: false }),
+    ApiOkResponse({ type: OrderResponseDto }),
+    ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Invalid payload' }),
+    ApiConflictResponse({ type: ApiBusinessConflictBodyDto, description: 'Invalid transition or inventory invariant' }),
+    ApiNotFoundResponse({ type: ApiNotFoundErrorBodyDto, description: 'Order or inventory not found' }),
+    __param(0, Param('id')),
+    __param(1, Body()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, ManualOrderLifecycleTransitionDto]),
+    __metadata("design:returntype", void 0)
+], OrdersController.prototype, "handOffToDelivery", null);
+__decorate([
+    Patch(':id/delivered'),
+    ApiOperation({ summary: 'Confirm customer receipt / delivery' }),
+    ApiParam({ name: 'id', description: 'Order id', type: String }),
+    ApiBody({ type: ManualOrderLifecycleTransitionDto, required: false }),
+    ApiOkResponse({ type: OrderResponseDto }),
+    ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Invalid payload' }),
+    ApiConflictResponse({ type: ApiBusinessConflictBodyDto, description: 'Invalid lifecycle transition' }),
+    ApiNotFoundResponse({ type: ApiNotFoundErrorBodyDto, description: 'Order not found' }),
+    __param(0, Param('id')),
+    __param(1, Body()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, ManualOrderLifecycleTransitionDto]),
+    __metadata("design:returntype", void 0)
+], OrdersController.prototype, "confirmDelivered", null);
+__decorate([
     Patch(':id/status'),
-    ApiOperation({ summary: 'Update order status' }),
+    ApiOperation({ summary: 'Legacy single-status transition endpoint' }),
     ApiParam({ name: 'id', description: 'Order id', type: String }),
     ApiBody({ type: UpdateOrderStatusDto }),
     ApiOkResponse({ type: OrderResponseDto }),
     ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Invalid payload' }),
     ApiConflictResponse({ type: ApiBusinessConflictBodyDto, description: 'Invalid transition or inventory invariant' }),
-    ApiNotFoundResponse({ description: 'Order or inventory not found' }),
+    ApiNotFoundResponse({ type: ApiNotFoundErrorBodyDto, description: 'Order or inventory not found' }),
     __param(0, Param('id')),
     __param(1, Body()),
     __metadata("design:type", Function),

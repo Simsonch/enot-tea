@@ -1,6 +1,6 @@
 # Guest checkout и жизненный цикл MVP (Enot Tea)
 
-Сопровождает [ADR 0005: MVP guest checkout и раздельные статусы](../adr/0005-mvp-guest-checkout-order-lifecycle.md). **Реализация в репозитории** планируется в Sprint 5+; до этого документ — целевой контракт для команды.
+Сопровождает [ADR 0005: MVP guest checkout и раздельные статусы](../adr/0005-mvp-guest-checkout-order-lifecycle.md). Начиная со Sprint 5, документ описывает фактический публичный order flow backend API и должен обновляться вместе с OpenAPI/client generation.
 
 ## 1. Guest checkout
 
@@ -23,11 +23,13 @@
 
 ### 2.1 `OrderStatus` (обработка заявки владельцем)
 
-Смысловой минимум (пример, имена уточняются при DTO/enum в Sprint 5):
+Фактический Sprint 5 enum/path:
 
-- `PENDING_REVIEW` — заказ поступил, ожидает решения.
-- `PROCESSING` — ведется обработка (согласование, уточнения).
-- `READY_TO_SHIP` / `APPROVED_FOR_FULFILLMENT` — можно отгружать/передавать в доставку при выполненных оплате и правилах склада.
+- `NEW` — заказ поступил и товар зарезервирован.
+- `CONFIRMED` — владелец выставил счет.
+- `PACKED` — оплата подтверждена, заказ готов к передаче в доставку.
+- `SHIPPED` — заказ передан в доставку, склад списан.
+- `DELIVERED` — владелец подтвердил получение клиентом.
 - `CANCELLED` — отмена (с политикой возврата резерва).
 
 ### 2.2 `PaymentStatus` (только ручной контур)
@@ -41,8 +43,8 @@
 
 ### 2.3 `FulfillmentStatus` (склад / доставка / получение)
 
-- `NOT_STARTED` / `RESERVED` — товар зарезервирован (см. склад).
-- `HANDED_TO_CARRIER` / `IN_TRANSIT` — передан в доставку (как в UI владельца).
+- `RESERVED` — товар зарезервирован (см. склад).
+- `HANDED_TO_CARRIER` — передан в доставку (как в UI владельца).
 - `DELIVERED` — владелец подтвердил получение клиентом.
 - `RETURNED` — post-MVP.
 
@@ -61,21 +63,21 @@
 | Событие | `reserved` | `onHand` | `StockMovement` |
 |---------|------------|----------|-----------------|
 | Создание заказа (успех) | +qty по позициям | без изменений | да (reason: e.g. `ORDER_RESERVE`) |
-| Отмена заказа (до/после оплаты — по политике) | -qty | без изменений или +onHand при возврате (post-MVP) | да |
-| Подтверждение отгрузки/передачи в доставку (когда со склада уходит товар) | -qty | -qty | да (e.g. `ORDER_SHIP`) |
+| Отмена заказа до отгрузки | -qty | без изменений | да (`ORDER_CANCEL_RELEASE`) |
+| Передача в доставку (`PATCH /orders/:id/handoff-to-delivery`, когда со склада уходит товар) | -qty | -qty | да (`ORDER_SHIP`) |
 | Подтверждение доставки клиенту | без изменения остатков | без изменения | нет, или лог-запись без дельты (на усмотрение) |
 
-**Важно:** точная привязка «списываем `onHand` на шаге X» должна совпадать с операционной договоренностью (один шаг: «передано в доставку» vs «доставлено»). Один вариант фиксируем в миграции + matrix + тесты.
+**Важно:** каноничная точка списания `onHand` — `PATCH /orders/:id/handoff-to-delivery` (`PACKED / PAID / RESERVED -> SHIPPED / PAID / HANDED_TO_CARRIER`). `POST /orders` только резервирует `reserved`, а `PATCH /orders/:id/delivered` не меняет склад.
 
 ### 3.3 Конкуренция
 
 - Проверка `available` и инкремент `reserved` должны быть **атомарными** (транзакция + `UPDATE ... WHERE` с условием на достаточный `available` или эквивалент).
-- Добавить тест(ы) с параллельным созданием заказов на последний остаток (Sprint 5).
+- Покрыто сервисным тестом параллельного создания заказов на последний остаток.
 
 ## 4. Аудит
 
 - `OrderStatusHistory` — **все** значимые переходы (по `OrderStatus`, и при отдельных endpoint — по `Payment`/`Fulfillment` если вынесены в отдельные таблицы/истории).
-- Sprint 5 / S5-001 implementation choice: использовать одну расширенную `OrderStatusHistory` с `statusDimension = ORDER | PAYMENT | FULFILLMENT` и отдельными from/to полями для каждого измерения. Новые таблицы истории не добавлять, пока не появится отдельная потребность в разных политиках хранения/доступа.
+- Sprint 5 implementation choice: использовать одну расширенную `OrderStatusHistory` с `statusDimension = ORDER | PAYMENT | FULFILLMENT` и отдельными from/to полями для каждого измерения. Новые таблицы истории не добавлять, пока не появится отдельная потребность в разных политиках хранения/доступа.
 - Владелец-инициатор: `changedById` (после появления auth владельца в Sprint 7).
 - `StockMovement` — привязка к `orderId` / `orderItemId` / `inventoryItemId` по схеме Sprint 5.
 
@@ -87,5 +89,5 @@
 ## 6. Связанные документы
 
 - [Product roadmap](../product-roadmap.md)
-- [Domain model v1](domain-model.md) — до миграции отражает старую одно-enum схему; после Sprint 5 обновить разделы lifecycle.
+- [Domain model v1](domain-model.md) — отражает Sprint 5 guest checkout lifecycle и legacy single-status compatibility endpoint.
 - [Orders API contract matrix](orders-api-contract-matrix.md) — обновляется вместе с реализацией.

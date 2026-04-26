@@ -5,7 +5,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { OrderStatus, type Prisma } from '@prisma/client';
+import {
+  FulfillmentStatus,
+  OrderStatus,
+  OrderStatusDimension,
+  PaymentStatus,
+  type Prisma,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { type CreateOrderDto, type UpdateOrderStatusDto } from './orders.dto.js';
 
@@ -31,7 +37,7 @@ export class OrdersService {
   async create(dto: CreateOrderDto) {
     return this.prisma.$transaction(async (tx) => {
       if (dto.customerId) {
-        await this.ensureCustomerExists(tx, dto.customerId);
+        await this.ensureLinkedCustomerExists(tx, dto.customerId);
       }
 
       const requestedItems = this.aggregateItems(dto.items);
@@ -88,6 +94,9 @@ export class OrdersService {
         customerFullName: dto.customerFullName,
         customerEmail: dto.customerEmail,
         shippingAddress: dto.shippingAddress,
+        status: OrderStatus.NEW,
+        paymentStatus: PaymentStatus.PENDING,
+        fulfillmentStatus: FulfillmentStatus.RESERVED,
         totalMinor,
         ...(dto.customerId ? { customer: { connect: { id: dto.customerId } } } : {}),
         ...(dto.customerPhone ? { customerPhone: dto.customerPhone } : {}),
@@ -109,6 +118,7 @@ export class OrdersService {
         },
         statusHistory: {
           create: {
+            statusDimension: OrderStatusDimension.ORDER,
             fromStatus: null,
             toStatus: OrderStatus.NEW,
             comment: 'Создание заказа',
@@ -223,7 +233,7 @@ export class OrdersService {
     return order;
   }
 
-  private async ensureCustomerExists(
+  private async ensureLinkedCustomerExists(
     tx: Prisma.TransactionClient,
     customerId: NonNullable<CreateOrderDto['customerId']>,
   ) {

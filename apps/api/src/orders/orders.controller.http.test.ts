@@ -52,7 +52,15 @@ async function createApp(overrides?: {
           paymentStatus: 'PENDING',
           fulfillmentStatus: 'RESERVED',
           totalMinor: 100,
-          items: [],
+          items: [
+            {
+              id: 'item-created',
+              productId: dto.items[0]?.productId,
+              quantity: dto.items[0]?.quantity,
+              priceMinor: 100,
+              totalMinor: 100,
+            },
+          ],
           statusHistory: [],
         };
       }),
@@ -127,7 +135,21 @@ test('POST /orders: guest payload without customerId returns created order snaps
     assert.equal(response.body.customerId, null);
     assert.equal(response.body.customerFullName, guestOrderPayload.customerFullName);
     assert.equal(response.body.customerEmail, guestOrderPayload.customerEmail);
+    assert.equal(response.body.customerPhone, guestOrderPayload.customerPhone);
     assert.equal(response.body.shippingAddress, guestOrderPayload.shippingAddress);
+    assert.equal(response.body.status, 'NEW');
+    assert.equal(response.body.paymentStatus, 'PENDING');
+    assert.equal(response.body.fulfillmentStatus, 'RESERVED');
+    assert.equal(response.body.totalMinor, 100);
+    assert.deepEqual(response.body.items, [
+      {
+        id: 'item-created',
+        productId: 'product-1',
+        quantity: 1,
+        priceMinor: 100,
+        totalMinor: 100,
+      },
+    ]);
     assert.equal(getCreateCalls(), 1);
   } finally {
     await app.close();

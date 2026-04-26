@@ -9,6 +9,11 @@ type OpenApiParameter = {
   };
 };
 
+type OpenApiSchema = {
+  properties?: Record<string, unknown>;
+  required?: string[];
+};
+
 test('OpenAPI document includes expected paths and order operations', async () => {
   process.env.OPENAPI_EXPORT = '1';
   const { NestFactory } = await import('@nestjs/core');
@@ -28,6 +33,21 @@ test('OpenAPI document includes expected paths and order operations', async () =
     );
     assert.deepEqual(productQueryParams.sort(), ['isActive', 'limit', 'offset']);
     assert.ok(paths['/orders']?.post, 'order create is documented');
+    const schemas = (document.components?.schemas ?? {}) as Record<string, OpenApiSchema>;
+    const createOrderSchema = schemas.CreateOrderDto;
+    assert.ok(createOrderSchema, 'order create schema is documented');
+    assert.deepEqual(createOrderSchema.required?.sort(), [
+      'customerEmail',
+      'customerFullName',
+      'items',
+      'shippingAddress',
+    ]);
+    assert.ok(createOrderSchema.properties?.customerId, 'optional customerId remains documented');
+    const orderResponseSchema = schemas.OrderResponseDto;
+    assert.ok(orderResponseSchema, 'order response schema is documented');
+    assert.ok(orderResponseSchema.properties?.customerFullName, 'customer snapshot is returned');
+    assert.ok(orderResponseSchema.properties?.paymentStatus, 'payment status is returned');
+    assert.ok(orderResponseSchema.properties?.fulfillmentStatus, 'fulfillment status is returned');
     const orderById = '/orders/{id}';
     const orderGet = paths[orderById]?.get;
     assert.ok(orderGet, 'order get by id is documented');

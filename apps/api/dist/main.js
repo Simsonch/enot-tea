@@ -1,6 +1,8 @@
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { SwaggerModule } from '@nestjs/swagger';
 import { formatValidationFieldErrors } from './common/validation-error-format.js';
+import { buildOpenApiDocument } from './openapi/build-document.js';
 import { AppModule } from './app.module.js';
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
@@ -15,6 +17,12 @@ async function bootstrap() {
             errors: formatValidationFieldErrors(errors),
         }),
     }));
+    if (process.env.SWAGGER_DISABLE !== '1') {
+        const document = buildOpenApiDocument(app);
+        SwaggerModule.setup('api', app, document, {
+            customSiteTitle: 'Enot Tea API',
+        });
+    }
     await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();

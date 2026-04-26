@@ -10,8 +10,10 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-import { Controller, Get, Query } from "@nestjs/common";
-import { ProductsService } from "./products.service.js";
+import { Controller, Get, Query } from '@nestjs/common';
+import { ApiOkResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ProductsListResponseDto } from '../openapi/response-models.js';
+import { ProductsService } from './products.service.js';
 let ProductsController = class ProductsController {
     productsService;
     constructor(productsService) {
@@ -23,6 +25,11 @@ let ProductsController = class ProductsController {
 };
 __decorate([
     Get(),
+    ApiOperation({ summary: 'List products with pagination' }),
+    ApiQuery({ name: 'limit', required: false, type: Number, minimum: 1, maximum: 100 }),
+    ApiQuery({ name: 'offset', required: false, type: Number, minimum: 0 }),
+    ApiQuery({ name: 'isActive', required: false, type: Boolean }),
+    ApiOkResponse({ type: ProductsListResponseDto }),
     __param(0, Query()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Function]),
@@ -30,6 +37,7 @@ __decorate([
 ], ProductsController.prototype, "list", null);
 ProductsController = __decorate([
     Controller('products'),
+    ApiTags('products'),
     __metadata("design:paramtypes", [ProductsService])
 ], ProductsController);
 export { ProductsController };

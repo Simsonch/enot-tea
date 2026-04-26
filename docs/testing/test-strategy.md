@@ -9,10 +9,16 @@
 - Smoke manual/API checks: минимальный post-release контроль критичных сценариев.
 
 ## Mandatory Release-Gate Suite
+Из корня репозитория (эквивалент шагов ниже):
+- `pnpm ci:verify` — `typecheck` + `test` + `build` для `apps/api`, `db:validate`, экспорт OpenAPI в `packages/api-client/spec/openapi.json`, Orval-генерация `packages/api-client`, `tsc` для `@enot-tea/api-client`.
+
+Пошагово (при отладке):
 - `pnpm --filter "@enot-tea/api" typecheck`
-- `pnpm --filter "@enot-tea/api" test`
+- `pnpm --filter "@enot-tea/api" test` (включая `src/openapi/openapi.document.test.ts` — стабильный набор путей OpenAPI)
 - `pnpm --filter "@enot-tea/api" build`
 - `pnpm --filter "@enot-tea/api" db:validate`
+- `pnpm openapi:export` и `pnpm api-client:gen` (или `pnpm api-client:regen`)
+- `pnpm typecheck:api-client`
 
 ## Critical Business Flows to Cover
 - Создание заказа (`POST /orders`) с проверкой `INSUFFICIENT_STOCK`.

@@ -8,6 +8,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 import { Controller, Get } from '@nestjs/common';
+import { ApiExcludeEndpoint, ApiTags } from '@nestjs/swagger';
 import { AppService } from './app.service.js';
 let AppController = class AppController {
     appService;
@@ -20,11 +21,13 @@ let AppController = class AppController {
 };
 __decorate([
     Get(),
+    ApiExcludeEndpoint(),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", String)
 ], AppController.prototype, "getRoot", null);
 AppController = __decorate([
+    ApiTags('root'),
     Controller(),
     __metadata("design:paramtypes", [AppService])
 ], AppController);

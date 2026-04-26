@@ -6,11 +6,19 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 };
 import { Injectable } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+/** When set to `1`, Prisma will not open a real DB connection (e.g. OpenAPI export, metadata-only tests). */
+export const OPENAPI_EXPORT_ENV = 'OPENAPI_EXPORT';
 let PrismaService = class PrismaService extends PrismaClient {
     async onModuleInit() {
+        if (process.env[OPENAPI_EXPORT_ENV] === '1') {
+            return;
+        }
         await this.$connect();
     }
     async onModuleDestroy() {
+        if (process.env[OPENAPI_EXPORT_ENV] === '1') {
+            return;
+        }
         await this.$disconnect();
     }
 };

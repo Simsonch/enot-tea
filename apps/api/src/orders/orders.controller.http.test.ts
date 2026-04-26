@@ -131,6 +131,9 @@ test('PATCH /orders/:id/status: invalid enum toStatus returns 400 VALIDATION_ERR
       .expect(400);
 
     assert.equal(response.body.code, 'VALIDATION_ERROR');
+    assert.equal(response.body.errors[0].field, 'toStatus');
+    assert.ok(Array.isArray(response.body.errors[0].messages));
+    assert.equal(response.body.errors[0].errors, undefined);
     assert.equal(getUpdateStatusCalls(), 0);
   } finally {
     await app.close();

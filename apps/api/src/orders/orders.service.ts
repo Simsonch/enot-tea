@@ -37,15 +37,27 @@ export class OrdersService {
 
       const products = await tx.product.findMany({
         where: { id: { in: productIds } },
-        select: { id: true, priceMinor: true },
+        select: { id: true, priceMinor: true, isActive: true },
       });
       if (products.length !== productIds.length) {
         throw new NotFoundException('Один или несколько товаров не найдены.');
       }
 
+      const inactiveProduct = products.find((product) => !product.isActive);
+      if (inactiveProduct) {
+        throw new ConflictException({
+          statusCode: HttpStatus.CONFLICT,
+          code: 'PRODUCT_INACTIVE',
+          message: 'Нельзя оформить заказ на неактивный товар.',
+          details: {
+            productId: inactiveProduct.id,
+          },
+        });
+      }
+
       const inventory = await tx.inventoryItem.findMany({
         where: { productId: { in: productIds } },
-        select: { productId: true, onHand: true, reserved: true },
+        select: { id: true, productId: true },
       });
       if (inventory.length !== productIds.length) {
         throw new NotFoundException('Остатки для одного или нескольких товаров не найдены.');
@@ -65,20 +77,6 @@ export class OrdersService {
           throw new NotFoundException(
             `Товар или остаток не найден для productId=${requested.productId}.`,
           );
-        }
-
-        const available = stock.onHand - stock.reserved;
-        if (available < requested.quantity) {
-          throw new ConflictException({
-            statusCode: HttpStatus.CONFLICT,
-            code: 'INSUFFICIENT_STOCK',
-            message: 'Недостаточно товара на складе для выбранного количества.',
-            details: {
-              productId: requested.productId,
-              requested: requested.quantity,
-              available,
-            },
-          });
         }
 
         totalMinor += product.priceMinor * requested.quantity;
@@ -104,6 +102,13 @@ export class OrdersService {
               };
             }),
           },
+          statusHistory: {
+            create: {
+              fromStatus: null,
+              toStatus: OrderStatus.NEW,
+              comment: 'Создание заказа',
+            },
+          },
         },
         include: {
           items: {
@@ -115,13 +120,38 @@ export class OrdersService {
               totalMinor: true,
             },
           },
+          statusHistory: {
+            select: {
+              id: true,
+              fromStatus: true,
+              toStatus: true,
+              changedById: true,
+              comment: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: 'asc' },
+          },
         },
       });
 
+      const orderItemsByProductId = new Map(
+        order.items.map((item) => [item.productId, item]),
+      );
       for (const requested of requestedItems) {
-        await tx.inventoryItem.update({
-          where: { productId: requested.productId },
-          data: { reserved: { increment: requested.quantity } },
+        const stock = inventoryByProductId.get(requested.productId);
+        const orderItem = orderItemsByProductId.get(requested.productId);
+        if (!stock || !orderItem) {
+          throw new NotFoundException(
+            `Товар или остаток не найден для productId=${requested.productId}.`,
+          );
+        }
+
+        await this.reserveInventoryForOrder(tx, {
+          inventoryItemId: stock.id,
+          orderId: order.id,
+          orderItemId: orderItem.id,
+          productId: requested.productId,
+          quantity: requested.quantity,
         });
       }
 
@@ -159,6 +189,7 @@ export class OrdersService {
             id: true,
             fromStatus: true,
             toStatus: true,
+            changedById: true,
             comment: true,
             createdAt: true,
           },
@@ -210,6 +241,7 @@ export class OrdersService {
         include: {
           items: {
             select: {
+              id: true,
               productId: true,
               quantity: true,
             },
@@ -224,6 +256,7 @@ export class OrdersService {
       this.ensureTransitionAllowed(order.status, dto.toStatus, order.id);
       await this.applyInventoryChangesForTransition(
         tx,
+        order.id,
         order.items,
         dto.toStatus,
       );
@@ -257,6 +290,7 @@ export class OrdersService {
               id: true,
               fromStatus: true,
               toStatus: true,
+              changedById: true,
               comment: true,
               createdAt: true,
             },
@@ -289,27 +323,62 @@ export class OrdersService {
 
   private async applyInventoryChangesForTransition(
     tx: Prisma.TransactionClient,
-    items: Array<{ productId: string; quantity: number }>,
+    orderId: string,
+    items: Array<{ id: string; productId: string; quantity: number }>,
     toStatus: OrderStatus,
   ) {
     if (toStatus === OrderStatus.CANCELLED) {
-      await this.decrementReserved(tx, items);
+      await this.decrementReserved(tx, orderId, items);
       return;
     }
 
     if (toStatus === OrderStatus.SHIPPED) {
-      await this.shipItems(tx, items);
+      await this.shipItems(tx, orderId, items);
     }
+  }
+
+  private async reserveInventoryForOrder(
+    tx: Prisma.TransactionClient,
+    item: {
+      inventoryItemId: string;
+      orderId: string;
+      orderItemId: string;
+      productId: string;
+      quantity: number;
+    },
+  ) {
+    const affected = await tx.$executeRaw`
+      UPDATE "InventoryItem"
+      SET "reserved" = "reserved" + ${item.quantity},
+          "updatedAt" = NOW()
+      WHERE "id" = ${item.inventoryItemId}
+        AND ("onHand" - "reserved") >= ${item.quantity}
+    `;
+
+    if (Number(affected) !== 1) {
+      await this.throwInsufficientStock(tx, item.productId, item.quantity);
+    }
+
+    await tx.stockMovement.create({
+      data: {
+        inventoryItemId: item.inventoryItemId,
+        orderId: item.orderId,
+        orderItemId: item.orderItemId,
+        deltaReserved: item.quantity,
+        reason: 'ORDER_RESERVE',
+      },
+    });
   }
 
   private async decrementReserved(
     tx: Prisma.TransactionClient,
-    items: Array<{ productId: string; quantity: number }>,
+    orderId: string,
+    items: Array<{ id: string; productId: string; quantity: number }>,
   ) {
     for (const item of items) {
       const inventory = await tx.inventoryItem.findUnique({
         where: { productId: item.productId },
-        select: { productId: true, reserved: true },
+        select: { id: true, productId: true, reserved: true },
       });
 
       if (!inventory) {
@@ -331,12 +400,37 @@ export class OrdersService {
         });
       }
 
-      await tx.inventoryItem.update({
-        where: { productId: item.productId },
+      const updated = await tx.inventoryItem.updateMany({
+        where: {
+          id: inventory.id,
+          reserved: { gte: item.quantity },
+        },
         data: {
           reserved: {
             decrement: item.quantity,
           },
+        },
+      });
+      if (updated.count !== 1) {
+        throw new ConflictException({
+          statusCode: HttpStatus.CONFLICT,
+          code: 'INVENTORY_INVARIANT_VIOLATION',
+          message: `Недопустимое состояние резерва для productId=${item.productId}.`,
+          details: {
+            productId: item.productId,
+            reserved: inventory.reserved,
+            requiredToDecrement: item.quantity,
+          },
+        });
+      }
+
+      await tx.stockMovement.create({
+        data: {
+          inventoryItemId: inventory.id,
+          orderId,
+          orderItemId: item.id,
+          deltaReserved: -item.quantity,
+          reason: 'ORDER_CANCEL_RELEASE',
         },
       });
     }
@@ -344,12 +438,13 @@ export class OrdersService {
 
   private async shipItems(
     tx: Prisma.TransactionClient,
-    items: Array<{ productId: string; quantity: number }>,
+    orderId: string,
+    items: Array<{ id: string; productId: string; quantity: number }>,
   ) {
     for (const item of items) {
       const inventory = await tx.inventoryItem.findUnique({
         where: { productId: item.productId },
-        select: { productId: true, onHand: true, reserved: true },
+        select: { id: true, productId: true, onHand: true, reserved: true },
       });
 
       if (!inventory) {
@@ -375,14 +470,68 @@ export class OrdersService {
         });
       }
 
-      await tx.inventoryItem.update({
-        where: { productId: item.productId },
+      const updated = await tx.inventoryItem.updateMany({
+        where: {
+          id: inventory.id,
+          onHand: { gte: item.quantity },
+          reserved: { gte: item.quantity },
+        },
         data: {
           onHand: { decrement: item.quantity },
           reserved: { decrement: item.quantity },
         },
       });
+      if (updated.count !== 1) {
+        throw new ConflictException({
+          statusCode: HttpStatus.CONFLICT,
+          code: 'INVENTORY_INVARIANT_VIOLATION',
+          message: `Недопустимое состояние склада для отгрузки productId=${item.productId}.`,
+          details: {
+            productId: item.productId,
+            onHand: inventory.onHand,
+            reserved: inventory.reserved,
+            requiredToShip: item.quantity,
+          },
+        });
+      }
+
+      await tx.stockMovement.create({
+        data: {
+          inventoryItemId: inventory.id,
+          orderId,
+          orderItemId: item.id,
+          deltaOnHand: -item.quantity,
+          deltaReserved: -item.quantity,
+          reason: 'ORDER_SHIP',
+        },
+      });
     }
+  }
+
+  private async throwInsufficientStock(
+    tx: Prisma.TransactionClient,
+    productId: string,
+    requested: number,
+  ): Promise<never> {
+    const inventory = await tx.inventoryItem.findUnique({
+      where: { productId },
+      select: { onHand: true, reserved: true },
+    });
+
+    if (!inventory) {
+      throw new NotFoundException(`Остаток для productId=${productId} не найден.`);
+    }
+
+    throw new ConflictException({
+      statusCode: HttpStatus.CONFLICT,
+      code: 'INSUFFICIENT_STOCK',
+      message: 'Недостаточно товара на складе для выбранного количества.',
+      details: {
+        productId,
+        requested,
+        available: inventory.onHand - inventory.reserved,
+      },
+    });
   }
 
   private getDefaultTransitionComment(
@@ -401,7 +550,7 @@ export class OrdersService {
         errors: [
           {
             field: 'toStatus',
-            errors: [
+            messages: [
               'toStatus должен быть одним из значений: CONFIRMED, PACKED, SHIPPED, DELIVERED.',
             ],
           },

@@ -52,7 +52,7 @@ __decorate([
     ApiBody({ type: CreateOrderDto }),
     ApiCreatedResponse({ type: OrderResponseDto }),
     ApiBadRequestResponse({ type: ApiValidationErrorBodyDto, description: 'Invalid payload' }),
-    ApiConflictResponse({ type: ApiBusinessConflictBodyDto, description: 'Out of stock (INSUFFICIENT_STOCK)' }),
+    ApiConflictResponse({ type: ApiBusinessConflictBodyDto, description: 'Out of stock or inactive product' }),
     ApiNotFoundResponse({ description: 'Customer, product, or inventory row not found' }),
     __param(0, Body()),
     __metadata("design:type", Function),

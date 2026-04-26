@@ -10,10 +10,11 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Inject, Query } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { ProductsListResponseDto } from '../openapi/response-models.js';
 import { ProductsService } from './products.service.js';
+import { GetProductsQueryDto } from './products.dto.js';
 let ProductsController = class ProductsController {
     productsService;
     constructor(productsService) {
@@ -32,12 +33,13 @@ __decorate([
     ApiOkResponse({ type: ProductsListResponseDto }),
     __param(0, Query()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Function]),
+    __metadata("design:paramtypes", [GetProductsQueryDto]),
     __metadata("design:returntype", void 0)
 ], ProductsController.prototype, "list", null);
 ProductsController = __decorate([
     Controller('products'),
     ApiTags('products'),
+    __param(0, Inject(ProductsService)),
     __metadata("design:paramtypes", [ProductsService])
 ], ProductsController);
 export { ProductsController };

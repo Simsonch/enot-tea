@@ -30,18 +30,7 @@
 - `test`:
   - `apps/api/src/orders/orders.service.test.ts`;
   - `apps/api/src/orders/orders.controller.http.test.ts`;
-  - `apps/api/src/common/validation-error-format.test.ts`.
-- `build`:
-  - проверка сборки NestJS-приложения и модульных импортов.
-- `db:validate`:
-  - проверка `prisma/schema.prisma` и Prisma-конфига.
-
-## Release-Gate Coverage Map
-- `typecheck`:
-  - проверка типов и совместимости TS-контрактов.
-- `test`:
-  - `apps/api/src/orders/orders.service.test.ts`;
-  - `apps/api/src/orders/orders.controller.http.test.ts`;
+  - `apps/api/src/products/products.controller.http.test.ts`;
   - `apps/api/src/common/validation-error-format.test.ts`.
 - `build`:
   - проверка сборки NestJS-приложения и модульных импортов.
@@ -50,16 +39,20 @@
 
 ## Critical Business Flows to Cover
 - Создание заказа (`POST /orders`) с проверкой `INSUFFICIENT_STOCK`.
+- Создание заказа с атомарным резервом на последний остаток без oversell.
+- Блокировка заказа для `Product.isActive = false`.
 - Получение заказа (`GET /orders/:id`) с `items` и `statusHistory`.
 - Отмена заказа (`PATCH /orders/:id/cancel`) с корректным снятием `reserved`.
 - Переходы статусов (`PATCH /orders/:id/status`) с проверкой допустимости переходов.
 - Инварианты склада при `SHIPPED`: списание `onHand` и `reserved`.
+- Каталог (`GET /products`) с пагинацией и фильтром `isActive`.
 
 ## Error Contract Coverage
 - `VALIDATION_ERROR` (400) — невалидные входные данные.
 - `INVALID_ORDER_STATUS_TRANSITION` (409) — запрещенный переход статуса.
 - `INVENTORY_INVARIANT_VIOLATION` (409) — нарушение складских инвариантов.
 - `INSUFFICIENT_STOCK` (409) — нехватка доступного остатка.
+- `PRODUCT_INACTIVE` (409) — попытка оформить заказ на неактивный товар.
 
 ## Minimum Regression Policy
 - Любое изменение поведения `orders` требует:

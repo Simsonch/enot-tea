@@ -80,14 +80,20 @@ model InventoryItem {
 model StockMovement {
   id              String   @id @default(cuid())
   inventoryItemId String
+  orderId         String?
+  orderItemId     String?
   deltaOnHand     Int      @default(0)
   deltaReserved   Int      @default(0)
   reason          String
   createdAt       DateTime @default(now())
 
   inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  order         Order?        @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  orderItem     OrderItem?    @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
 
   @@index([inventoryItemId, createdAt])
+  @@index([orderId, createdAt])
+  @@index([orderItemId, createdAt])
 }
 
 model Order {
@@ -98,9 +104,10 @@ model Order {
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
 
-  customer      User                 @relation("OrderCustomer", fields: [customerId], references: [id], onDelete: Restrict)
-  items         OrderItem[]
-  statusHistory OrderStatusHistory[]
+  customer       User                 @relation("OrderCustomer", fields: [customerId], references: [id], onDelete: Restrict)
+  items          OrderItem[]
+  statusHistory  OrderStatusHistory[]
+  stockMovements StockMovement[]
 
   @@index([status, createdAt])
   @@index([customerId, createdAt])
@@ -115,8 +122,9 @@ model OrderItem {
   totalMinor Int
   createdAt  DateTime @default(now())
 
-  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  order          Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  stockMovements StockMovement[]
 
   @@index([orderId])
   @@index([productId])

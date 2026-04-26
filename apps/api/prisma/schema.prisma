@@ -23,6 +23,27 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum PaymentStatus {
+  PENDING
+  INVOICE_SENT
+  PAID
+  REFUNDED
+  PAYMENT_FAILED
+}
+
+enum FulfillmentStatus {
+  RESERVED
+  HANDED_TO_CARRIER
+  DELIVERED
+  RETURNED
+}
+
+enum OrderStatusDimension {
+  ORDER
+  PAYMENT
+  FULFILLMENT
+}
+
 model User {
   id                   String               @id @default(cuid())
   email                String               @unique
@@ -97,19 +118,28 @@ model StockMovement {
 }
 
 model Order {
-  id         String      @id @default(cuid())
-  customerId String
-  status     OrderStatus @default(NEW)
-  totalMinor Int
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  id                String            @id @default(cuid())
+  customerId        String?
+  customerFullName  String
+  customerEmail     String
+  customerPhone     String?
+  shippingAddress   String
+  status            OrderStatus       @default(NEW)
+  paymentStatus     PaymentStatus     @default(PENDING)
+  fulfillmentStatus FulfillmentStatus @default(RESERVED)
+  totalMinor        Int
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 
-  customer       User                 @relation("OrderCustomer", fields: [customerId], references: [id], onDelete: Restrict)
+  customer       User?                @relation("OrderCustomer", fields: [customerId], references: [id], onDelete: Restrict)
   items          OrderItem[]
   statusHistory  OrderStatusHistory[]
   stockMovements StockMovement[]
 
   @@index([status, createdAt])
+  @@index([paymentStatus, createdAt])
+  @@index([fulfillmentStatus, createdAt])
+  @@index([customerEmail, createdAt])
   @@index([customerId, createdAt])
 }
 
@@ -131,18 +161,24 @@ model OrderItem {
 }
 
 model OrderStatusHistory {
-  id          String       @id @default(cuid())
-  orderId     String
-  fromStatus  OrderStatus?
-  toStatus    OrderStatus
-  changedById String?
-  comment     String?
-  createdAt   DateTime     @default(now())
+  id                    String               @id @default(cuid())
+  orderId               String
+  statusDimension       OrderStatusDimension @default(ORDER)
+  fromStatus            OrderStatus?
+  toStatus              OrderStatus?
+  fromPaymentStatus     PaymentStatus?
+  toPaymentStatus       PaymentStatus?
+  fromFulfillmentStatus FulfillmentStatus?
+  toFulfillmentStatus   FulfillmentStatus?
+  changedById           String?
+  comment               String?
+  createdAt             DateTime             @default(now())
 
   order     Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
   changedBy User? @relation("OrderStatusChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
 
   @@index([orderId, createdAt])
+  @@index([orderId, statusDimension, createdAt])
 }
 
 model ChatSession {

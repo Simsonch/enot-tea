@@ -30,7 +30,9 @@ export class OrdersService {
 
   async create(dto: CreateOrderDto) {
     return this.prisma.$transaction(async (tx) => {
-      await this.ensureCustomerExists(tx, dto.customerId);
+      if (dto.customerId) {
+        await this.ensureCustomerExists(tx, dto.customerId);
+      }
 
       const requestedItems = this.aggregateItems(dto.items);
       const productIds = requestedItems.map((item) => item.productId);
@@ -82,34 +84,40 @@ export class OrdersService {
         totalMinor += product.priceMinor * requested.quantity;
       }
 
-      const order = await tx.order.create({
-        data: {
-          customerId: dto.customerId,
-          totalMinor,
-          items: {
-            create: requestedItems.map((requested) => {
-              const product = productsById.get(requested.productId);
-              if (!product) {
-                throw new NotFoundException(
-                  `Товар productId=${requested.productId} не найден.`,
-                );
-              }
-              return {
-                productId: requested.productId,
-                quantity: requested.quantity,
-                priceMinor: product.priceMinor,
-                totalMinor: product.priceMinor * requested.quantity,
-              };
-            }),
-          },
-          statusHistory: {
-            create: {
-              fromStatus: null,
-              toStatus: OrderStatus.NEW,
-              comment: 'Создание заказа',
-            },
+      const orderData: Prisma.OrderCreateInput = {
+        customerFullName: dto.customerFullName,
+        customerEmail: dto.customerEmail,
+        shippingAddress: dto.shippingAddress,
+        totalMinor,
+        ...(dto.customerId ? { customer: { connect: { id: dto.customerId } } } : {}),
+        ...(dto.customerPhone ? { customerPhone: dto.customerPhone } : {}),
+        items: {
+          create: requestedItems.map((requested) => {
+            const product = productsById.get(requested.productId);
+            if (!product) {
+              throw new NotFoundException(
+                `Товар productId=${requested.productId} не найден.`,
+              );
+            }
+            return {
+              productId: requested.productId,
+              quantity: requested.quantity,
+              priceMinor: product.priceMinor,
+              totalMinor: product.priceMinor * requested.quantity,
+            };
+          }),
+        },
+        statusHistory: {
+          create: {
+            fromStatus: null,
+            toStatus: OrderStatus.NEW,
+            comment: 'Создание заказа',
           },
         },
+      };
+
+      const order = await tx.order.create({
+        data: orderData,
         include: {
           items: {
             select: {
@@ -123,8 +131,13 @@ export class OrdersService {
           statusHistory: {
             select: {
               id: true,
+              statusDimension: true,
               fromStatus: true,
               toStatus: true,
+              fromPaymentStatus: true,
+              toPaymentStatus: true,
+              fromFulfillmentStatus: true,
+              toFulfillmentStatus: true,
               changedById: true,
               comment: true,
               createdAt: true,
@@ -187,8 +200,13 @@ export class OrdersService {
         statusHistory: {
           select: {
             id: true,
+            statusDimension: true,
             fromStatus: true,
             toStatus: true,
+            fromPaymentStatus: true,
+            toPaymentStatus: true,
+            fromFulfillmentStatus: true,
+            toFulfillmentStatus: true,
             changedById: true,
             comment: true,
             createdAt: true,
@@ -207,7 +225,7 @@ export class OrdersService {
 
   private async ensureCustomerExists(
     tx: Prisma.TransactionClient,
-    customerId: string,
+    customerId: NonNullable<CreateOrderDto['customerId']>,
   ) {
     const customer = await tx.user.findUnique({
       where: { id: customerId },
@@ -288,8 +306,13 @@ export class OrdersService {
           statusHistory: {
             select: {
               id: true,
+              statusDimension: true,
               fromStatus: true,
               toStatus: true,
+              fromPaymentStatus: true,
+              toPaymentStatus: true,
+              fromFulfillmentStatus: true,
+              toFulfillmentStatus: true,
               changedById: true,
               comment: true,
               createdAt: true,

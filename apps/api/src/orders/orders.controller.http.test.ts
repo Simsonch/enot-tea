@@ -7,7 +7,7 @@ import request from 'supertest';
 import { OrderStatus } from '@prisma/client';
 import { OrdersController } from './orders.controller.js';
 import { OrdersService } from './orders.service.js';
-import { UpdateOrderStatusDto } from './orders.dto.js';
+import { CreateOrderDto, UpdateOrderStatusDto } from './orders.dto.js';
 import { formatValidationFieldErrors } from '../common/validation-error-format.js';
 
 // `tsx` test runtime may miss design-time metadata for decorated parameters.
@@ -18,17 +18,44 @@ Reflect.defineMetadata(
   OrdersController.prototype,
   'updateStatus',
 );
+Reflect.defineMetadata(
+  'design:paramtypes',
+  [CreateOrderDto],
+  OrdersController.prototype,
+  'create',
+);
 
 async function createApp(overrides?: {
+  create?: (dto: CreateOrderDto) => Promise<unknown>;
   updateStatus?: (id: string, dto: { toStatus: OrderStatus; comment?: string }) => Promise<unknown>;
   cancel?: (id: string) => Promise<unknown>;
 }) {
+  let createCalls = 0;
   let updateStatusCalls = 0;
   let cancelCalls = 0;
 
   const ordersServiceMock = {
     getById: async () => ({}),
-    create: async () => ({}),
+    create:
+      overrides?.create ??
+      (async (dto: CreateOrderDto) => {
+        createCalls += 1;
+
+        return {
+          id: 'order-created',
+          customerId: dto.customerId ?? null,
+          customerFullName: dto.customerFullName,
+          customerEmail: dto.customerEmail,
+          customerPhone: dto.customerPhone ?? null,
+          shippingAddress: dto.shippingAddress,
+          status: OrderStatus.NEW,
+          paymentStatus: 'PENDING',
+          fulfillmentStatus: 'RESERVED',
+          totalMinor: 100,
+          items: [],
+          statusHistory: [],
+        };
+      }),
     cancel:
       overrides?.cancel ??
       (async (id: string) => {
@@ -73,10 +100,112 @@ async function createApp(overrides?: {
 
   return {
     app,
+    getCreateCalls: () => createCalls,
     getUpdateStatusCalls: () => updateStatusCalls,
     getCancelCalls: () => cancelCalls,
   };
 }
+
+const guestOrderPayload = {
+  customerFullName: 'Иван Иванов',
+  customerEmail: 'ivan@example.com',
+  customerPhone: '+995 555 010 010',
+  shippingAddress: 'Тбилиси, ул. Руставели, 1',
+  items: [{ productId: 'product-1', quantity: 1 }],
+};
+
+test('POST /orders: guest payload without customerId returns created order snapshot', async () => {
+  const { app, getCreateCalls } = await createApp();
+
+  try {
+    const response = await request(app.getHttpServer())
+      .post('/orders')
+      .send(guestOrderPayload)
+      .expect(201);
+
+    assert.equal(response.body.id, 'order-created');
+    assert.equal(response.body.customerId, null);
+    assert.equal(response.body.customerFullName, guestOrderPayload.customerFullName);
+    assert.equal(response.body.customerEmail, guestOrderPayload.customerEmail);
+    assert.equal(response.body.shippingAddress, guestOrderPayload.shippingAddress);
+    assert.equal(getCreateCalls(), 1);
+  } finally {
+    await app.close();
+  }
+});
+
+test('POST /orders: payload with customerId passes linked customer id to service', async () => {
+  const { app } = await createApp({
+    create: async (dto) => ({
+      id: 'order-linked',
+      customerId: dto.customerId,
+      customerFullName: dto.customerFullName,
+      customerEmail: dto.customerEmail,
+      shippingAddress: dto.shippingAddress,
+      status: OrderStatus.NEW,
+      paymentStatus: 'PENDING',
+      fulfillmentStatus: 'RESERVED',
+      totalMinor: 100,
+      items: [],
+      statusHistory: [],
+    }),
+  });
+
+  try {
+    const response = await request(app.getHttpServer())
+      .post('/orders')
+      .send({ ...guestOrderPayload, customerId: 'customer-1' })
+      .expect(201);
+
+    assert.equal(response.body.customerId, 'customer-1');
+  } finally {
+    await app.close();
+  }
+});
+
+test('POST /orders: missing snapshot fields returns 400 VALIDATION_ERROR', async () => {
+  const { app, getCreateCalls } = await createApp();
+
+  try {
+    const response = await request(app.getHttpServer())
+      .post('/orders')
+      .send({ items: [{ productId: 'product-1', quantity: 1 }] })
+      .expect(400);
+
+    assert.equal(response.body.code, 'VALIDATION_ERROR');
+    assert.equal(response.body.statusCode, 400);
+    assert.ok(
+      response.body.errors.some((error: { field?: string }) => error.field === 'customerFullName'),
+    );
+    assert.ok(
+      response.body.errors.some((error: { field?: string }) => error.field === 'customerEmail'),
+    );
+    assert.ok(
+      response.body.errors.some((error: { field?: string }) => error.field === 'shippingAddress'),
+    );
+    assert.equal(getCreateCalls(), 0);
+  } finally {
+    await app.close();
+  }
+});
+
+test('POST /orders: invalid email returns 400 VALIDATION_ERROR', async () => {
+  const { app, getCreateCalls } = await createApp();
+
+  try {
+    const response = await request(app.getHttpServer())
+      .post('/orders')
+      .send({ ...guestOrderPayload, customerEmail: 'not-an-email' })
+      .expect(400);
+
+    assert.equal(response.body.code, 'VALIDATION_ERROR');
+    assert.equal(response.body.errors[0].field, 'customerEmail');
+    assert.ok(Array.isArray(response.body.errors[0].messages));
+    assert.equal(getCreateCalls(), 0);
+  } finally {
+    await app.close();
+  }
+});
 
 test('PATCH /orders/:id/status: happy path CONFIRMED -> PACKED', async () => {
   const { app } = await createApp({

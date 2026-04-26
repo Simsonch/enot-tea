@@ -1,6 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { OrderStatus } from '@prisma/client';
 
+const paymentStatuses = ['PENDING', 'INVOICE_SENT', 'PAID', 'REFUNDED', 'PAYMENT_FAILED'] as const;
+type PaymentStatus = (typeof paymentStatuses)[number];
+
+const fulfillmentStatuses = ['RESERVED', 'HANDED_TO_CARRIER', 'DELIVERED', 'RETURNED'] as const;
+type FulfillmentStatus = (typeof fulfillmentStatuses)[number];
+
+const orderStatusDimensions = ['ORDER', 'PAYMENT', 'FULFILLMENT'] as const;
+type OrderStatusDimension = (typeof orderStatusDimensions)[number];
+
 export class HealthDbResponseDto {
   @ApiProperty({ type: 'string', example: 'ok', description: 'Liveness' })
   status!: string;
@@ -69,11 +78,26 @@ export class OrderStatusHistoryEntryDto {
   @ApiProperty({ type: 'string' })
   id!: string;
 
-  @ApiPropertyOptional({ enum: OrderStatus, enumName: 'OrderStatus' })
+  @ApiProperty({ enum: orderStatusDimensions, enumName: 'OrderStatusDimension' })
+  statusDimension!: OrderStatusDimension;
+
+  @ApiPropertyOptional({ enum: OrderStatus, enumName: 'OrderStatus', nullable: true })
   fromStatus?: OrderStatus | null;
 
-  @ApiProperty({ enum: OrderStatus, enumName: 'OrderStatus' })
-  toStatus!: OrderStatus;
+  @ApiPropertyOptional({ enum: OrderStatus, enumName: 'OrderStatus', nullable: true })
+  toStatus?: OrderStatus | null;
+
+  @ApiPropertyOptional({ enum: paymentStatuses, enumName: 'PaymentStatus', nullable: true })
+  fromPaymentStatus?: PaymentStatus | null;
+
+  @ApiPropertyOptional({ enum: paymentStatuses, enumName: 'PaymentStatus', nullable: true })
+  toPaymentStatus?: PaymentStatus | null;
+
+  @ApiPropertyOptional({ enum: fulfillmentStatuses, enumName: 'FulfillmentStatus', nullable: true })
+  fromFulfillmentStatus?: FulfillmentStatus | null;
+
+  @ApiPropertyOptional({ enum: fulfillmentStatuses, enumName: 'FulfillmentStatus', nullable: true })
+  toFulfillmentStatus?: FulfillmentStatus | null;
 
   @ApiPropertyOptional({ type: 'string', nullable: true })
   changedById?: string | null;
@@ -93,11 +117,29 @@ export class OrderResponseDto {
   @ApiProperty({ type: 'string' })
   id!: string;
 
+  @ApiPropertyOptional({ type: 'string', nullable: true })
+  customerId?: string | null;
+
   @ApiProperty({ type: 'string' })
-  customerId!: string;
+  customerFullName!: string;
+
+  @ApiProperty({ type: 'string', format: 'email' })
+  customerEmail!: string;
+
+  @ApiPropertyOptional({ type: 'string', nullable: true })
+  customerPhone?: string | null;
+
+  @ApiProperty({ type: 'string' })
+  shippingAddress!: string;
 
   @ApiProperty({ enum: OrderStatus, enumName: 'OrderStatus' })
   status!: OrderStatus;
+
+  @ApiProperty({ enum: paymentStatuses, enumName: 'PaymentStatus' })
+  paymentStatus!: PaymentStatus;
+
+  @ApiProperty({ enum: fulfillmentStatuses, enumName: 'FulfillmentStatus' })
+  fulfillmentStatus!: FulfillmentStatus;
 
   @ApiProperty({ type: 'number' })
   totalMinor!: number;

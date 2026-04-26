@@ -47,6 +47,29 @@ export const OrderStatus = {
   CANCELLED: 'CANCELLED',
 } as const;
 
+export type PaymentStatus = typeof PaymentStatus[keyof typeof PaymentStatus];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const PaymentStatus = {
+  PENDING: 'PENDING',
+  INVOICE_SENT: 'INVOICE_SENT',
+  PAID: 'PAID',
+  REFUNDED: 'REFUNDED',
+  PAYMENT_FAILED: 'PAYMENT_FAILED',
+} as const;
+
+export type FulfillmentStatus = typeof FulfillmentStatus[keyof typeof FulfillmentStatus];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const FulfillmentStatus = {
+  RESERVED: 'RESERVED',
+  HANDED_TO_CARRIER: 'HANDED_TO_CARRIER',
+  DELIVERED: 'DELIVERED',
+  RETURNED: 'RETURNED',
+} as const;
+
 export interface OrderItemResponseDto {
   id: string;
   productId: string;
@@ -55,10 +78,61 @@ export interface OrderItemResponseDto {
   totalMinor: number;
 }
 
+export type OrderStatusDimension = typeof OrderStatusDimension[keyof typeof OrderStatusDimension];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const OrderStatusDimension = {
+  ORDER: 'ORDER',
+  PAYMENT: 'PAYMENT',
+  FULFILLMENT: 'FULFILLMENT',
+} as const;
+
+/**
+ * @nullable
+ */
+export type OrderStatusHistoryEntryDtoFromStatus = OrderStatus | null;
+
+/**
+ * @nullable
+ */
+export type OrderStatusHistoryEntryDtoToStatus = OrderStatus | null;
+
+/**
+ * @nullable
+ */
+export type OrderStatusHistoryEntryDtoFromPaymentStatus = PaymentStatus | null;
+
+/**
+ * @nullable
+ */
+export type OrderStatusHistoryEntryDtoToPaymentStatus = PaymentStatus | null;
+
+/**
+ * @nullable
+ */
+export type OrderStatusHistoryEntryDtoFromFulfillmentStatus = FulfillmentStatus | null;
+
+/**
+ * @nullable
+ */
+export type OrderStatusHistoryEntryDtoToFulfillmentStatus = FulfillmentStatus | null;
+
 export interface OrderStatusHistoryEntryDto {
   id: string;
-  fromStatus?: OrderStatus;
-  toStatus: OrderStatus;
+  statusDimension: OrderStatusDimension;
+  /** @nullable */
+  fromStatus?: OrderStatusHistoryEntryDtoFromStatus;
+  /** @nullable */
+  toStatus?: OrderStatusHistoryEntryDtoToStatus;
+  /** @nullable */
+  fromPaymentStatus?: OrderStatusHistoryEntryDtoFromPaymentStatus;
+  /** @nullable */
+  toPaymentStatus?: OrderStatusHistoryEntryDtoToPaymentStatus;
+  /** @nullable */
+  fromFulfillmentStatus?: OrderStatusHistoryEntryDtoFromFulfillmentStatus;
+  /** @nullable */
+  toFulfillmentStatus?: OrderStatusHistoryEntryDtoToFulfillmentStatus;
   /** @nullable */
   changedById?: string | null;
   /** @nullable */
@@ -68,8 +142,16 @@ export interface OrderStatusHistoryEntryDto {
 
 export interface OrderResponseDto {
   id: string;
-  customerId: string;
+  /** @nullable */
+  customerId?: string | null;
+  customerFullName: string;
+  customerEmail: string;
+  /** @nullable */
+  customerPhone?: string | null;
+  shippingAddress: string;
   status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  fulfillmentStatus: FulfillmentStatus;
   totalMinor: number;
   createdAt: string;
   updatedAt: string;
@@ -84,7 +166,12 @@ export interface CreateOrderItemDto {
 }
 
 export interface CreateOrderDto {
-  customerId: string;
+  /** Linked customer id for non-guest orders. */
+  customerId?: string;
+  customerFullName: string;
+  customerEmail: string;
+  customerPhone?: string;
+  shippingAddress: string;
   items: CreateOrderItemDto[];
 }
 

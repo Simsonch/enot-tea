@@ -6,7 +6,7 @@
 ## Scope
 - API модуля `apps/api` для `orders`.
 - Контракты синхронизированы с реализацией `OrdersService` и текущими HTTP/service тестами.
-- Матрица является опорной для **текущей legacy single-status реализации до Sprint 5**. Target MVP из [ADR 0005](../adr/0005-mvp-guest-checkout-order-lifecycle.md) вводит guest checkout и отдельные статусы обработки/оплаты/fulfillment; это планируемое breaking/change-by-contract изменение и должно обновить эту матрицу одновременно с кодом.
+- Матрица отражает Sprint 5 / S5-001 baseline из [ADR 0005](../adr/0005-mvp-guest-checkout-order-lifecycle.md): guest checkout snapshot, nullable `customerId`, отдельные `paymentStatus` и `fulfillmentStatus`.
 
 ## Domain Rules (Canonical)
 - Жизненный цикл статусов:
@@ -17,29 +17,35 @@
 - `PATCH /orders/:id/status` принимает только `CONFIRMED | PACKED | SHIPPED | DELIVERED`.
 - Отмена выполняется через `PATCH /orders/:id/cancel` (endpoint сохранен для backward compatibility).
 - Все успешные переходы статусов обязаны писать запись в `OrderStatusHistory`.
+- `OrderStatusHistory` хранит историю трех измерений через `statusDimension = ORDER | PAYMENT | FULFILLMENT`; в S5-001 реализована схема, а payment/fulfillment endpoint-ы добавляются следующими задачами Sprint 5.
 - `changedById` в `OrderStatusHistory` остается `null`, пока в API нет auth владельца/оператора.
 - `Product.isActive = false` нельзя оформить в заказ.
 - Списание `onHand` происходит при переходе `PACKED -> SHIPPED`; создание заказа только резервирует `reserved`.
+- Новый заказ получает defaults: `status = NEW`, `paymentStatus = PENDING`, `fulfillmentStatus = RESERVED`.
 
 ## Endpoints
 
 ### `POST /orders`
+- Request:
+  - обязательные snapshot-поля: `customerFullName`, `customerEmail`, `shippingAddress`.
+  - опциональные поля: `customerPhone`, `customerId`.
+  - `customerId` используется только для привязки к существующему `User`; guest checkout работает без него.
 - Success:
-  - `201 Created` + созданный заказ с `items` и финальным `totalMinor`.
+  - `201 Created` + созданный заказ с snapshot-полями, `items`, финальным `totalMinor`, `status`, `paymentStatus`, `fulfillmentStatus`.
 - Error contracts:
   - `400` + `VALIDATION_ERROR` — невалидный payload.
-  - `404` — `customer`/`product`/`inventory` не найден.
+  - `404` — `customer` не найден, если передан `customerId`; `product`/`inventory` не найден.
   - `409` + `INSUFFICIENT_STOCK` — недостаточно доступного остатка.
   - `409` + `PRODUCT_INACTIVE` — товар найден, но `Product.isActive = false`.
 - Side effects:
   - атомарное условное увеличение `reserved` по позициям заказа: проверка доступного остатка и инкремент выполняются одним `UPDATE ... WHERE onHand - reserved >= quantity` на позицию.
   - запись `StockMovement` с `reason = ORDER_RESERVE`, `deltaReserved = quantity`, связанная с `Order`/`OrderItem`.
-  - начальная запись в `OrderStatusHistory` (`fromStatus = null`, `toStatus = NEW`, `changedById = null`).
-  - статус нового заказа: `NEW`.
+  - начальная запись в `OrderStatusHistory` (`statusDimension = ORDER`, `fromStatus = null`, `toStatus = NEW`, `changedById = null`).
+  - статусы нового заказа: `status = NEW`, `paymentStatus = PENDING`, `fulfillmentStatus = RESERVED`.
 
 ### `GET /orders/:id`
 - Success:
-  - `200 OK` + заказ с `items` и `statusHistory`.
+  - `200 OK` + заказ со snapshot-полями, `items`, `status`, `paymentStatus`, `fulfillmentStatus` и `statusHistory`.
 - Error contracts:
   - `404` — заказ не найден.
 - Side effects:
@@ -88,11 +94,11 @@
 ## Compatibility Notes
 - `PATCH /orders/:id/cancel` сохраняется для backward compatibility.
 - `PATCH /orders/:id/status` не принимает `CANCELLED` и `NEW`; отмена выполняется только через `cancel` endpoint.
-- В рамках legacy single-status API изменения должны быть backward-compatible.
-- Переход к guest checkout и отдельным статусам в Sprint 5+ является запланированным контрактным изменением из ADR 0005 и не должен маскироваться как backward-compatible-only изменение.
+- `POST /orders` изменен по ADR 0005: вместо обязательного `customerId` публичный контракт требует snapshot покупателя/доставки и допускает guest checkout без аккаунта.
 
 ## References
 - `docs/adr/0003-order-lifecycle-policy.md`
+- `docs/adr/0005-mvp-guest-checkout-order-lifecycle.md`
 - `docs/adr/0004-api-error-contract-standard.md`
 - `apps/api/src/orders/orders.service.ts`
 - `apps/api/src/orders/orders.controller.http.test.ts`

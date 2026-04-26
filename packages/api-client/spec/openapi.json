@@ -389,6 +389,25 @@
           "CANCELLED"
         ]
       },
+      "PaymentStatus": {
+        "type": "string",
+        "enum": [
+          "PENDING",
+          "INVOICE_SENT",
+          "PAID",
+          "REFUNDED",
+          "PAYMENT_FAILED"
+        ]
+      },
+      "FulfillmentStatus": {
+        "type": "string",
+        "enum": [
+          "RESERVED",
+          "HANDED_TO_CARRIER",
+          "DELIVERED",
+          "RETURNED"
+        ]
+      },
       "OrderItemResponseDto": {
         "type": "object",
         "properties": {
@@ -416,13 +435,29 @@
           "totalMinor"
         ]
       },
+      "OrderStatusDimension": {
+        "type": "string",
+        "enum": [
+          "ORDER",
+          "PAYMENT",
+          "FULFILLMENT"
+        ]
+      },
       "OrderStatusHistoryEntryDto": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string"
           },
+          "statusDimension": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OrderStatusDimension"
+              }
+            ]
+          },
           "fromStatus": {
+            "nullable": true,
             "allOf": [
               {
                 "$ref": "#/components/schemas/OrderStatus"
@@ -430,9 +465,42 @@
             ]
           },
           "toStatus": {
+            "nullable": true,
             "allOf": [
               {
                 "$ref": "#/components/schemas/OrderStatus"
+              }
+            ]
+          },
+          "fromPaymentStatus": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaymentStatus"
+              }
+            ]
+          },
+          "toPaymentStatus": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaymentStatus"
+              }
+            ]
+          },
+          "fromFulfillmentStatus": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FulfillmentStatus"
+              }
+            ]
+          },
+          "toFulfillmentStatus": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FulfillmentStatus"
               }
             ]
           },
@@ -451,7 +519,7 @@
         },
         "required": [
           "id",
-          "toStatus",
+          "statusDimension",
           "createdAt"
         ]
       },
@@ -462,12 +530,41 @@
             "type": "string"
           },
           "customerId": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerFullName": {
+            "type": "string"
+          },
+          "customerEmail": {
+            "type": "string",
+            "format": "email"
+          },
+          "customerPhone": {
+            "type": "string",
+            "nullable": true
+          },
+          "shippingAddress": {
             "type": "string"
           },
           "status": {
             "allOf": [
               {
                 "$ref": "#/components/schemas/OrderStatus"
+              }
+            ]
+          },
+          "paymentStatus": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaymentStatus"
+              }
+            ]
+          },
+          "fulfillmentStatus": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FulfillmentStatus"
               }
             ]
           },
@@ -497,8 +594,12 @@
         },
         "required": [
           "id",
-          "customerId",
+          "customerFullName",
+          "customerEmail",
+          "shippingAddress",
           "status",
+          "paymentStatus",
+          "fulfillmentStatus",
           "totalMinor",
           "createdAt",
           "updatedAt",
@@ -526,7 +627,25 @@
         "type": "object",
         "properties": {
           "customerId": {
-            "type": "string"
+            "type": "string",
+            "description": "Linked customer id for non-guest orders."
+          },
+          "customerFullName": {
+            "type": "string",
+            "example": "Иван Иванов"
+          },
+          "customerEmail": {
+            "type": "string",
+            "format": "email",
+            "example": "customer@example.com"
+          },
+          "customerPhone": {
+            "type": "string",
+            "example": "+995 555 010 010"
+          },
+          "shippingAddress": {
+            "type": "string",
+            "example": "Тбилиси, ул. Руставели, 1"
           },
           "items": {
             "type": "array",
@@ -536,7 +655,9 @@
           }
         },
         "required": [
-          "customerId",
+          "customerFullName",
+          "customerEmail",
+          "shippingAddress",
           "items"
         ]
       },

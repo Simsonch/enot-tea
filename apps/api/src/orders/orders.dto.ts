@@ -16,7 +16,7 @@ import { Type } from 'class-transformer';
 import { OrderStatus } from '@prisma/client';
 
 export class CreateOrderItemDto {
-  @ApiProperty({ type: 'string' })
+  @ApiProperty({ type: 'string', description: 'Product id from the public catalog.' })
   @IsString({ message: 'productId должен быть строкой.' })
   @IsNotEmpty({ message: 'Укажите идентификатор товара (productId).' })
   productId!: string;
@@ -28,34 +28,54 @@ export class CreateOrderItemDto {
 }
 
 export class CreateOrderDto {
-  @ApiPropertyOptional({ type: 'string', description: 'Linked customer id for non-guest orders.' })
+  @ApiPropertyOptional({
+    type: 'string',
+    description: 'Optional linked customer id for non-guest orders; omit for guest checkout.',
+  })
   @IsOptional()
   @IsString({ message: 'customerId должен быть строкой.' })
   @IsNotEmpty({ message: 'Укажите идентификатор покупателя (customerId).' })
   customerId?: string;
 
-  @ApiProperty({ type: 'string', example: 'Иван Иванов' })
+  @ApiProperty({
+    type: 'string',
+    example: 'Иван Иванов',
+    description: 'Guest/customer name snapshot stored on the order.',
+  })
   @IsString({ message: 'customerFullName должен быть строкой.' })
   @IsNotEmpty({ message: 'Укажите ФИО покупателя (customerFullName).' })
   customerFullName!: string;
 
-  @ApiProperty({ type: 'string', format: 'email', example: 'customer@example.com' })
+  @ApiProperty({
+    type: 'string',
+    format: 'email',
+    example: 'customer@example.com',
+    description: 'Guest/customer email snapshot stored on the order.',
+  })
   @IsEmail({}, { message: 'customerEmail должен быть корректным email.' })
   @IsNotEmpty({ message: 'Укажите email покупателя (customerEmail).' })
   customerEmail!: string;
 
-  @ApiPropertyOptional({ type: 'string', example: '+995 555 010 010' })
+  @ApiPropertyOptional({
+    type: 'string',
+    example: '+995 555 010 010',
+    description: 'Optional phone snapshot.',
+  })
   @IsOptional()
   @IsString({ message: 'customerPhone должен быть строкой.' })
   @IsNotEmpty({ message: 'customerPhone не должен быть пустым.' })
   customerPhone?: string;
 
-  @ApiProperty({ type: 'string', example: 'Тбилиси, ул. Руставели, 1' })
+  @ApiProperty({
+    type: 'string',
+    example: 'Тбилиси, ул. Руставели, 1',
+    description: 'Shipping address snapshot stored on the order.',
+  })
   @IsString({ message: 'shippingAddress должен быть строкой.' })
   @IsNotEmpty({ message: 'Укажите адрес доставки (shippingAddress).' })
   shippingAddress!: string;
 
-  @ApiProperty({ type: () => [CreateOrderItemDto] })
+  @ApiProperty({ type: () => [CreateOrderItemDto], minItems: 1 })
   @IsArray({ message: 'Список позиций (items) должен быть массивом.' })
   @ArrayMinSize(1, { message: 'Добавьте хотя бы одну позицию в заказ (items).' })
   @ValidateNested({ each: true })

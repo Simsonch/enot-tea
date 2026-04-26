@@ -81,29 +81,29 @@ export class OrderStatusHistoryEntryDto {
   @ApiProperty({ enum: orderStatusDimensions, enumName: 'OrderStatusDimension' })
   statusDimension!: OrderStatusDimension;
 
-  @ApiPropertyOptional({ enum: OrderStatus, enumName: 'OrderStatus', nullable: true })
-  fromStatus?: OrderStatus | null;
+  @ApiProperty({ enum: OrderStatus, enumName: 'OrderStatus', nullable: true })
+  fromStatus!: OrderStatus | null;
 
-  @ApiPropertyOptional({ enum: OrderStatus, enumName: 'OrderStatus', nullable: true })
-  toStatus?: OrderStatus | null;
+  @ApiProperty({ enum: OrderStatus, enumName: 'OrderStatus', nullable: true })
+  toStatus!: OrderStatus | null;
 
-  @ApiPropertyOptional({ enum: paymentStatuses, enumName: 'PaymentStatus', nullable: true })
-  fromPaymentStatus?: PaymentStatus | null;
+  @ApiProperty({ enum: paymentStatuses, enumName: 'PaymentStatus', nullable: true })
+  fromPaymentStatus!: PaymentStatus | null;
 
-  @ApiPropertyOptional({ enum: paymentStatuses, enumName: 'PaymentStatus', nullable: true })
-  toPaymentStatus?: PaymentStatus | null;
+  @ApiProperty({ enum: paymentStatuses, enumName: 'PaymentStatus', nullable: true })
+  toPaymentStatus!: PaymentStatus | null;
 
-  @ApiPropertyOptional({ enum: fulfillmentStatuses, enumName: 'FulfillmentStatus', nullable: true })
-  fromFulfillmentStatus?: FulfillmentStatus | null;
+  @ApiProperty({ enum: fulfillmentStatuses, enumName: 'FulfillmentStatus', nullable: true })
+  fromFulfillmentStatus!: FulfillmentStatus | null;
 
-  @ApiPropertyOptional({ enum: fulfillmentStatuses, enumName: 'FulfillmentStatus', nullable: true })
-  toFulfillmentStatus?: FulfillmentStatus | null;
+  @ApiProperty({ enum: fulfillmentStatuses, enumName: 'FulfillmentStatus', nullable: true })
+  toFulfillmentStatus!: FulfillmentStatus | null;
 
-  @ApiPropertyOptional({ type: 'string', nullable: true })
-  changedById?: string | null;
+  @ApiProperty({ type: 'string', nullable: true })
+  changedById!: string | null;
 
-  @ApiPropertyOptional({ type: 'string', nullable: true })
-  comment?: string | null;
+  @ApiProperty({ type: 'string', nullable: true })
+  comment!: string | null;
 
   @ApiProperty({ type: 'string', format: 'date-time' })
   createdAt!: string;
@@ -111,14 +111,19 @@ export class OrderStatusHistoryEntryDto {
 
 /**
  * `GET /orders/:id` and successful `POST /orders` / `PATCH` responses.
- * `statusHistory` is included when the application loads relations (read/detail flows).
+ * Order endpoints load `items` and `statusHistory`, so nullable fields are present
+ * as JSON keys even when they do not apply to guest checkout or a history dimension.
  */
 export class OrderResponseDto {
   @ApiProperty({ type: 'string' })
   id!: string;
 
-  @ApiPropertyOptional({ type: 'string', nullable: true })
-  customerId?: string | null;
+  @ApiProperty({
+    type: 'string',
+    nullable: true,
+    description: 'Linked customer id; null for guest checkout orders.',
+  })
+  customerId!: string | null;
 
   @ApiProperty({ type: 'string' })
   customerFullName!: string;
@@ -126,8 +131,8 @@ export class OrderResponseDto {
   @ApiProperty({ type: 'string', format: 'email' })
   customerEmail!: string;
 
-  @ApiPropertyOptional({ type: 'string', nullable: true })
-  customerPhone?: string | null;
+  @ApiProperty({ type: 'string', nullable: true })
+  customerPhone!: string | null;
 
   @ApiProperty({ type: 'string' })
   shippingAddress!: string;
@@ -153,6 +158,6 @@ export class OrderResponseDto {
   @ApiProperty({ type: () => [OrderItemResponseDto] })
   items!: OrderItemResponseDto[];
 
-  @ApiPropertyOptional({ type: () => [OrderStatusHistoryEntryDto] })
-  statusHistory?: OrderStatusHistoryEntryDto[];
+  @ApiProperty({ type: () => [OrderStatusHistoryEntryDto] })
+  statusHistory!: OrderStatusHistoryEntryDto[];
 }

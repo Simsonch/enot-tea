@@ -63,4 +63,24 @@ __decorate([
     ApiPropertyOptional({ type: 'object', additionalProperties: true }),
     __metadata("design:type", Object)
 ], ApiBusinessConflictBodyDto.prototype, "details", void 0);
+/**
+ * 404: default NestJS not-found response used by service guards.
+ */
+export class ApiNotFoundErrorBodyDto {
+    statusCode;
+    message;
+    error;
+}
+__decorate([
+    ApiProperty({ type: 'number', example: 404 }),
+    __metadata("design:type", Number)
+], ApiNotFoundErrorBodyDto.prototype, "statusCode", void 0);
+__decorate([
+    ApiProperty({ type: 'string', example: 'Заказ orderId=order-1 не найден.' }),
+    __metadata("design:type", String)
+], ApiNotFoundErrorBodyDto.prototype, "message", void 0);
+__decorate([
+    ApiProperty({ type: 'string', example: 'Not Found' }),
+    __metadata("design:type", String)
+], ApiNotFoundErrorBodyDto.prototype, "error", void 0);
 //# sourceMappingURL=error-models.js.map

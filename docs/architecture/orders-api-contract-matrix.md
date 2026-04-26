@@ -6,7 +6,8 @@
 ## Scope
 - API модуля `apps/api` для `orders`.
 - Контракты синхронизированы с реализацией `OrdersService` и текущими HTTP/service тестами.
-- Матрица отражает Sprint 5 / S5-001 baseline из [ADR 0005](../adr/0005-mvp-guest-checkout-order-lifecycle.md): guest checkout snapshot, nullable `customerId`, отдельные `paymentStatus` и `fulfillmentStatus`.
+- Матрица отражает Sprint 5 / S5-006 release gate из [ADR 0005](../adr/0005-mvp-guest-checkout-order-lifecycle.md): guest checkout snapshot, nullable `customerId`, отдельные `paymentStatus` и `fulfillmentStatus`.
+- ADR 0005 меняет публичный контракт `POST /orders`; это не backward-compatible-only изменение.
 
 ## Domain Rules (Canonical)
 - Ручной MVP lifecycle валидируется как матрица трех статусов:
@@ -15,7 +16,8 @@
   - `PACKED / PAID / RESERVED -> SHIPPED / PAID / HANDED_TO_CARRIER` (`PATCH /orders/:id/handoff-to-delivery`)
   - `SHIPPED / PAID / HANDED_TO_CARRIER -> DELIVERED / PAID / DELIVERED` (`PATCH /orders/:id/delivered`)
   - `NEW|CONFIRMED|PACKED` до отгрузки (`fulfillmentStatus = RESERVED`, текущий `paymentStatus` сохраняется) -> `CANCELLED` (`PATCH /orders/:id/cancel`)
-- `PATCH /orders/:id/status` остается legacy endpoint-ом и принимает только `CONFIRMED | PACKED | SHIPPED | DELIVERED`.
+- `PATCH /orders/:id/status` остается legacy single-status endpoint-ом и принимает только `CONFIRMED | PACKED | SHIPPED | DELIVERED`.
+- Legacy `PATCH /orders/:id/status` меняет только `Order.status`; `paymentStatus` и `fulfillmentStatus` остаются текущими значениями заказа.
 - Отмена выполняется через `PATCH /orders/:id/cancel`.
 - Все успешные значимые переходы обязаны писать запись в `OrderStatusHistory`.
 - `OrderStatusHistory` хранит историю трех измерений через `statusDimension = ORDER | PAYMENT | FULFILLMENT`.
@@ -54,7 +56,7 @@
 
 ### `PATCH /orders/:id/cancel`
 - Success:
-  - `200 OK` + заказ в статусе `CANCELLED`.
+  - `200 OK` + заказ в статусе `CANCELLED`; текущий `paymentStatus` сохраняется, `fulfillmentStatus` остается `RESERVED` для допустимого pre-shipment cancellation.
 - Error contracts:
   - `400` + `VALIDATION_ERROR` — невалидный optional payload (`comment`).
   - `404` — заказ не найден.
@@ -112,7 +114,7 @@
 - Allowed `toStatus`:
   - `CONFIRMED`, `PACKED`, `SHIPPED`, `DELIVERED`.
 - Success:
-  - `200 OK` + обновленный заказ с `items` и `statusHistory`.
+  - `200 OK` + обновленный заказ с `items`, `paymentStatus`, `fulfillmentStatus` и `statusHistory`.
 - Error contracts:
   - `400` + `VALIDATION_ERROR` — отсутствует/некорректный `toStatus`.
   - `404` — заказ не найден.
@@ -121,7 +123,7 @@
 - Side effects:
   - legacy behavior: при `SHIPPED`: `onHand = onHand - quantity`, `reserved = reserved - quantity`.
   - при `SHIPPED`: запись `StockMovement` с `reason = ORDER_SHIP`, отрицательными `deltaOnHand`/`deltaReserved`, в той же транзакции.
-  - для каждого успешного перехода создается запись в `OrderStatusHistory` (`changedById = null` до auth владельца).
+  - для каждого успешного перехода создается запись в `OrderStatusHistory` с `statusDimension = ORDER` (`changedById = null` до auth владельца).
 
 ## Error Contract Shape
 - Для validation и business errors используется стабильная JSON-структура:
@@ -135,11 +137,12 @@
   - `PRODUCT_INACTIVE`
   - `INVALID_ORDER_STATUS_TRANSITION`
   - `INVENTORY_INVARIANT_VIOLATION`
+- `404` сейчас использует стандартную NestJS not-found форму: `statusCode`, `message`, `error`.
 
-## Compatibility Notes
-- `PATCH /orders/:id/cancel` сохраняется для backward compatibility.
-- `PATCH /orders/:id/status` не принимает `CANCELLED` и `NEW`; отмена выполняется только через `cancel` endpoint.
+## ADR 0005 Contract Notes
 - `POST /orders` изменен по ADR 0005: вместо обязательного `customerId` публичный контракт требует snapshot покупателя/доставки и допускает guest checkout без аккаунта.
+- `PATCH /orders/:id/cancel` является каноничным endpoint-ом отмены для Sprint 5 order flow.
+- `PATCH /orders/:id/status` оставлен только как legacy single-status endpoint; он не принимает `CANCELLED` и `NEW`, а отмена выполняется через `cancel` endpoint.
 
 ## References
 - `docs/adr/0003-order-lifecycle-policy.md`

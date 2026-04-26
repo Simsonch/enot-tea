@@ -9,6 +9,9 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { OrderStatus } from '@prisma/client';
+const paymentStatuses = ['PENDING', 'INVOICE_SENT', 'PAID', 'REFUNDED', 'PAYMENT_FAILED'];
+const fulfillmentStatuses = ['RESERVED', 'HANDED_TO_CARRIER', 'DELIVERED', 'RETURNED'];
+const orderStatusDimensions = ['ORDER', 'PAYMENT', 'FULFILLMENT'];
 export class HealthDbResponseDto {
     status;
     db;
@@ -111,8 +114,13 @@ __decorate([
 ], OrderItemResponseDto.prototype, "totalMinor", void 0);
 export class OrderStatusHistoryEntryDto {
     id;
+    statusDimension;
     fromStatus;
     toStatus;
+    fromPaymentStatus;
+    toPaymentStatus;
+    fromFulfillmentStatus;
+    toFulfillmentStatus;
     changedById;
     comment;
     createdAt;
@@ -122,19 +130,39 @@ __decorate([
     __metadata("design:type", String)
 ], OrderStatusHistoryEntryDto.prototype, "id", void 0);
 __decorate([
-    ApiPropertyOptional({ enum: OrderStatus, enumName: 'OrderStatus' }),
+    ApiProperty({ enum: orderStatusDimensions, enumName: 'OrderStatusDimension' }),
+    __metadata("design:type", String)
+], OrderStatusHistoryEntryDto.prototype, "statusDimension", void 0);
+__decorate([
+    ApiProperty({ enum: OrderStatus, enumName: 'OrderStatus', nullable: true }),
     __metadata("design:type", Object)
 ], OrderStatusHistoryEntryDto.prototype, "fromStatus", void 0);
 __decorate([
-    ApiProperty({ enum: OrderStatus, enumName: 'OrderStatus' }),
-    __metadata("design:type", String)
+    ApiProperty({ enum: OrderStatus, enumName: 'OrderStatus', nullable: true }),
+    __metadata("design:type", Object)
 ], OrderStatusHistoryEntryDto.prototype, "toStatus", void 0);
 __decorate([
-    ApiPropertyOptional({ type: 'string', nullable: true }),
+    ApiProperty({ enum: paymentStatuses, enumName: 'PaymentStatus', nullable: true }),
+    __metadata("design:type", Object)
+], OrderStatusHistoryEntryDto.prototype, "fromPaymentStatus", void 0);
+__decorate([
+    ApiProperty({ enum: paymentStatuses, enumName: 'PaymentStatus', nullable: true }),
+    __metadata("design:type", Object)
+], OrderStatusHistoryEntryDto.prototype, "toPaymentStatus", void 0);
+__decorate([
+    ApiProperty({ enum: fulfillmentStatuses, enumName: 'FulfillmentStatus', nullable: true }),
+    __metadata("design:type", Object)
+], OrderStatusHistoryEntryDto.prototype, "fromFulfillmentStatus", void 0);
+__decorate([
+    ApiProperty({ enum: fulfillmentStatuses, enumName: 'FulfillmentStatus', nullable: true }),
+    __metadata("design:type", Object)
+], OrderStatusHistoryEntryDto.prototype, "toFulfillmentStatus", void 0);
+__decorate([
+    ApiProperty({ type: 'string', nullable: true }),
     __metadata("design:type", Object)
 ], OrderStatusHistoryEntryDto.prototype, "changedById", void 0);
 __decorate([
-    ApiPropertyOptional({ type: 'string', nullable: true }),
+    ApiProperty({ type: 'string', nullable: true }),
     __metadata("design:type", Object)
 ], OrderStatusHistoryEntryDto.prototype, "comment", void 0);
 __decorate([
@@ -143,12 +171,19 @@ __decorate([
 ], OrderStatusHistoryEntryDto.prototype, "createdAt", void 0);
 /**
  * `GET /orders/:id` and successful `POST /orders` / `PATCH` responses.
- * `statusHistory` is included when the application loads relations (read/detail flows).
+ * Order endpoints load `items` and `statusHistory`, so nullable fields are present
+ * as JSON keys even when they do not apply to guest checkout or a history dimension.
  */
 export class OrderResponseDto {
     id;
     customerId;
+    customerFullName;
+    customerEmail;
+    customerPhone;
+    shippingAddress;
     status;
+    paymentStatus;
+    fulfillmentStatus;
     totalMinor;
     createdAt;
     updatedAt;
@@ -160,13 +195,41 @@ __decorate([
     __metadata("design:type", String)
 ], OrderResponseDto.prototype, "id", void 0);
 __decorate([
+    ApiProperty({
+        type: 'string',
+        nullable: true,
+        description: 'Linked customer id; null for guest checkout orders.',
+    }),
+    __metadata("design:type", Object)
+], OrderResponseDto.prototype, "customerId", void 0);
+__decorate([
     ApiProperty({ type: 'string' }),
     __metadata("design:type", String)
-], OrderResponseDto.prototype, "customerId", void 0);
+], OrderResponseDto.prototype, "customerFullName", void 0);
+__decorate([
+    ApiProperty({ type: 'string', format: 'email' }),
+    __metadata("design:type", String)
+], OrderResponseDto.prototype, "customerEmail", void 0);
+__decorate([
+    ApiProperty({ type: 'string', nullable: true }),
+    __metadata("design:type", Object)
+], OrderResponseDto.prototype, "customerPhone", void 0);
+__decorate([
+    ApiProperty({ type: 'string' }),
+    __metadata("design:type", String)
+], OrderResponseDto.prototype, "shippingAddress", void 0);
 __decorate([
     ApiProperty({ enum: OrderStatus, enumName: 'OrderStatus' }),
     __metadata("design:type", String)
 ], OrderResponseDto.prototype, "status", void 0);
+__decorate([
+    ApiProperty({ enum: paymentStatuses, enumName: 'PaymentStatus' }),
+    __metadata("design:type", String)
+], OrderResponseDto.prototype, "paymentStatus", void 0);
+__decorate([
+    ApiProperty({ enum: fulfillmentStatuses, enumName: 'FulfillmentStatus' }),
+    __metadata("design:type", String)
+], OrderResponseDto.prototype, "fulfillmentStatus", void 0);
 __decorate([
     ApiProperty({ type: 'number' }),
     __metadata("design:type", Number)
@@ -184,7 +247,7 @@ __decorate([
     __metadata("design:type", Array)
 ], OrderResponseDto.prototype, "items", void 0);
 __decorate([
-    ApiPropertyOptional({ type: () => [OrderStatusHistoryEntryDto] }),
+    ApiProperty({ type: () => [OrderStatusHistoryEntryDto] }),
     __metadata("design:type", Array)
 ], OrderResponseDto.prototype, "statusHistory", void 0);
 //# sourceMappingURL=response-models.js.map

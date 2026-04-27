@@ -21,14 +21,14 @@
 
 ## Статус
 
-- [ ] Все P0 запланированы и назначены.
-- [ ] `pnpm ci:verify` - green.
+- [x] Все P0 запланированы, назначены и закрыты.
+- [x] `pnpm ci:verify` - green (2026-04-27).
 
 ## Ворота релиза: выход из спринта 5
 
-- [ ] `pnpm --filter @enot-tea/api` typecheck, test, build, db:validate.
-- [ ] `pnpm api-client:regen` + нет uncommitted diff в spec/generated.
-- [ ] Доки matrix и ADR 0003/0005 согласованы с фактом в коде.
+- [x] `pnpm --filter @enot-tea/api` typecheck, test, build, db:validate.
+- [x] `pnpm api-client:regen` + нет uncommitted diff в spec/generated.
+- [x] Доки matrix и ADR 0003/0005 согласованы с фактом в коде.
 
 ## Примечания
 

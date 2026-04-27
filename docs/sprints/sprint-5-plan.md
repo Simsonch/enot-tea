@@ -40,7 +40,7 @@
 
 ## Чеклист приёмки
 
-- [ ] `docs/sprints/sprint-5-backlog.md` - все P0 с owner и deliverable.
-- [ ] Обновлен `docs/architecture/orders-api-contract-matrix.md` (и при смене политики - ссылка на ADR 0003/0005).
-- [ ] `apps/api` тесты: сервис + HTTP + openapi paths при изменении.
-- [ ] `pnpm ci:verify` пройден локально/CI.
+- [x] `docs/sprints/sprint-5-backlog.md` - все P0 с owner и deliverable.
+- [x] Обновлен `docs/architecture/orders-api-contract-matrix.md` (и при смене политики - ссылка на ADR 0003/0005).
+- [x] `apps/api` тесты: сервис + HTTP + openapi paths при изменении.
+- [x] `pnpm ci:verify` пройден локально/CI (2026-04-27).

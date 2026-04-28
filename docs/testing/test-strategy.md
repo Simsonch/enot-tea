@@ -7,7 +7,7 @@
 - Текущий обязательный контур: `apps/api`.
 - Основной фокус Sprint 4: контракт и регрессии в `orders`.
 - Документ синхронизирован с release gates из `docs/runbooks/release-process.md`.
-- **Расширение (Sprint 6+):** после появления `apps/storefront`, `apps/admin` и email-уведомлений (см. [product roadmap](../product-roadmap.md), [Sprint 8 plan](../sprints/sprint-8-plan.md)) release gate дополняется smokes: гостевой checkout, ручной pipeline владельца, тестовая доставка писем; CI для фронтенд-приложений — по мере появления скриптов `build`/`test` в workspace.
+- **Расширение (Sprint 6+):** для `apps/storefront` обязателен smoke гостевого checkout (catalog -> cart -> checkout -> thank-you) и проверка ошибок `VALIDATION_ERROR`/`INSUFFICIENT_STOCK`; для `apps/admin` и email-контуров smoke добавляется по мере реализации (см. [product roadmap](../product-roadmap.md), [Sprint 8 plan](../sprints/sprint-8-plan.md)).
 
 ## Пирамида тестов
 - Unit: бизнес-правила сервисов (`OrdersService`, валидации, инварианты).
@@ -67,6 +67,10 @@
 ## Периодичность запусков
 - На каждый PR в `apps/api`:
   - минимум `typecheck` + таргетные тесты затронутого модуля.
+- На каждый PR в `apps/storefront`:
+  - `pnpm --filter @enot-tea/storefront typecheck`;
+  - `pnpm --filter @enot-tea/storefront build`;
+  - ручной smoke checkout по `docs/runbooks/local-dev-storefront-admin.md`.
 - Перед merge в release-ветку:
   - полный mandatory release-gate suite.
 - После деплоя:

@@ -38,6 +38,6 @@
 
 ## Чеклист приёмки
 
-- [ ] `docs/sprints/sprint-6-backlog.md` - P0 закрыты.
-- [ ] `apps/storefront` в workspace.
-- [ ] Runbook dev обновлен.
+- [x] `docs/sprints/sprint-6-backlog.md` - P0 закрыты.
+- [x] `apps/storefront` в workspace.
+- [x] Runbook dev обновлен.

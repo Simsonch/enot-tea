@@ -13,6 +13,7 @@ export function buildOpenApiDocument(app: INestApplication) {
     )
     .setVersion('1.0.0')
     .addServer('http://localhost:3000', 'Локальная разработка')
+    .addBearerAuth()
     .build();
 
   return SwaggerModule.createDocument(app, config);

@@ -576,6 +576,49 @@ test('OrdersService.markInvoiceSent обновляет order/payment стату�
   ]);
 });
 
+test('OrdersService.markInvoiceSent пишет changedById для owner action', async () => {
+  const tx = {
+    order: {
+      findUnique: async () => ({
+        id: 'order-invoice-owner',
+        status: OrderStatus.NEW,
+        paymentStatus: PaymentStatus.PENDING,
+        fulfillmentStatus: FulfillmentStatus.RESERVED,
+        items: [{ id: 'item-1', productId: 'product-1', quantity: 1 }],
+      }),
+      update: async (args: unknown) => args,
+    },
+  };
+
+  const prisma = {
+    $transaction: async (fn: (innerTx: typeof tx) => Promise<unknown>) => fn(tx),
+  } as any;
+
+  const service = new OrdersService(prisma);
+  const result = (await service.markInvoiceSent(
+    'order-invoice-owner',
+    {},
+    'owner-1',
+  )) as any;
+
+  assert.deepEqual(result.data.statusHistory.create, [
+    {
+      statusDimension: OrderStatusDimension.ORDER,
+      fromStatus: OrderStatus.NEW,
+      toStatus: OrderStatus.CONFIRMED,
+      changedById: 'owner-1',
+      comment: 'Счет выставлен',
+    },
+    {
+      statusDimension: OrderStatusDimension.PAYMENT,
+      fromPaymentStatus: PaymentStatus.PENDING,
+      toPaymentStatus: PaymentStatus.INVOICE_SENT,
+      changedById: 'owner-1',
+      comment: 'Счет выставлен',
+    },
+  ]);
+});
+
 test('OrdersService.confirmPayment переводит заказ в PAID/PACKED без изменений склада', async () => {
   let inventoryUpdateCalls = 0;
   const tx = {
@@ -1006,6 +1049,57 @@ test('OrdersService.getById возвращает заказ с позициям�
   assert.equal(result.id, 'order-3');
   assert.equal(result.items.length, 1);
   assert.equal(result.statusHistory.length, 1);
+});
+
+test('OrdersService.list возвращает заказы с pagination и фильтрами', async () => {
+  const calls: unknown[] = [];
+  const prisma = {
+    $transaction: async (operations: unknown[]) => Promise.all(operations),
+    order: {
+      findMany: (args: unknown) => {
+        calls.push(args);
+        return Promise.resolve([
+          {
+            id: 'order-1',
+            customerId: null,
+            customerFullName: 'Иван Иванов',
+            customerEmail: 'ivan@example.com',
+            customerPhone: null,
+            shippingAddress: 'Тбилиси',
+            status: OrderStatus.NEW,
+            paymentStatus: PaymentStatus.PENDING,
+            fulfillmentStatus: FulfillmentStatus.RESERVED,
+            totalMinor: 100,
+            createdAt: new Date('2026-04-29T00:00:00.000Z'),
+            updatedAt: new Date('2026-04-29T00:00:00.000Z'),
+            _count: { items: 2 },
+          },
+        ]);
+      },
+      count: (args: unknown) => {
+        calls.push(args);
+        return Promise.resolve(1);
+      },
+    },
+  } as any;
+
+  const service = new OrdersService(prisma);
+  const result = await service.list({
+    limit: 10,
+    offset: 5,
+    status: OrderStatus.NEW,
+    from: '2026-04-01T00:00:00.000Z',
+    to: '2026-04-30T00:00:00.000Z',
+  });
+
+  assert.deepEqual(result.pagination, { limit: 10, offset: 5, total: 1 });
+  assert.equal(result.items[0]?.itemsCount, 2);
+  assert.equal(result.items[0]?.customerEmail, 'ivan@example.com');
+  assert.equal((calls[0] as any).skip, 5);
+  assert.equal((calls[0] as any).take, 10);
+  assert.equal((calls[0] as any).where.status, OrderStatus.NEW);
+  assert.ok((calls[0] as any).where.createdAt.gte instanceof Date);
+  assert.deepEqual((calls[1] as any).where, (calls[0] as any).where);
 });
 
 test('OrdersService.getById возвращает NotFound, если заказ не найден', async () => {

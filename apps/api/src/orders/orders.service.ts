@@ -15,6 +15,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   type CreateOrderDto,
+  type GetOrdersQueryDto,
   type ManualOrderLifecycleTransitionDto,
   type UpdateOrderStatusDto,
 } from './orders.dto.js';
@@ -33,6 +34,8 @@ type OrderLifecycleTransition = {
   shipInventory?: boolean;
   releaseReserved?: boolean;
 };
+
+type ActorId = string | undefined;
 
 @Injectable()
 export class OrdersService {
@@ -201,7 +204,7 @@ export class OrdersService {
     });
   }
 
-  async cancel(orderId: string, dto: ManualOrderLifecycleTransitionDto = {}) {
+  async cancel(orderId: string, dto: ManualOrderLifecycleTransitionDto = {}, actorId?: ActorId) {
     return this.transitionLifecycle(orderId, {
       operation: 'cancel',
       expected: [OrderStatus.NEW, OrderStatus.CONFIRMED, OrderStatus.PACKED].flatMap(
@@ -220,12 +223,13 @@ export class OrdersService {
       }),
       comment: dto.comment ?? 'Отмена заказа',
       releaseReserved: true,
-    });
+    }, actorId);
   }
 
   async markInvoiceSent(
     orderId: string,
     dto: ManualOrderLifecycleTransitionDto = {},
+    actorId?: ActorId,
   ) {
     return this.transitionLifecycle(orderId, {
       operation: 'invoice-sent',
@@ -240,12 +244,13 @@ export class OrdersService {
         fulfillmentStatus: FulfillmentStatus.RESERVED,
       },
       comment: dto.comment ?? 'Счет выставлен',
-    });
+    }, actorId);
   }
 
   async confirmPayment(
     orderId: string,
     dto: ManualOrderLifecycleTransitionDto = {},
+    actorId?: ActorId,
   ) {
     return this.transitionLifecycle(orderId, {
       operation: 'payment-confirmed',
@@ -260,12 +265,13 @@ export class OrdersService {
         fulfillmentStatus: FulfillmentStatus.RESERVED,
       },
       comment: dto.comment ?? 'Оплата подтверждена',
-    });
+    }, actorId);
   }
 
   async handOffToDelivery(
     orderId: string,
     dto: ManualOrderLifecycleTransitionDto = {},
+    actorId?: ActorId,
   ) {
     return this.transitionLifecycle(orderId, {
       operation: 'handoff-to-delivery',
@@ -281,12 +287,13 @@ export class OrdersService {
       },
       comment: dto.comment ?? 'Передано в доставку',
       shipInventory: true,
-    });
+    }, actorId);
   }
 
   async confirmDelivered(
     orderId: string,
     dto: ManualOrderLifecycleTransitionDto = {},
+    actorId?: ActorId,
   ) {
     return this.transitionLifecycle(orderId, {
       operation: 'delivered',
@@ -301,12 +308,74 @@ export class OrdersService {
         fulfillmentStatus: FulfillmentStatus.DELIVERED,
       },
       comment: dto.comment ?? 'Получение подтверждено',
-    });
+    }, actorId);
   }
 
-  async updateStatus(orderId: string, dto: UpdateOrderStatusDto) {
+  async updateStatus(orderId: string, dto: UpdateOrderStatusDto, actorId?: ActorId) {
     this.ensureUpdateStatusPayload(dto);
-    return this.transitionStatus(orderId, dto);
+    return this.transitionStatus(orderId, dto, actorId);
+  }
+
+  async list(query: GetOrdersQueryDto) {
+    const where: Prisma.OrderWhereInput = {
+      ...(query.status ? { status: query.status } : {}),
+      ...((query.from || query.to)
+        ? {
+            createdAt: {
+              ...(query.from ? { gte: new Date(query.from) } : {}),
+              ...(query.to ? { lte: new Date(query.to) } : {}),
+            },
+          }
+        : {}),
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.order.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: query.offset,
+        take: query.limit,
+        select: {
+          id: true,
+          customerId: true,
+          customerFullName: true,
+          customerEmail: true,
+          customerPhone: true,
+          shippingAddress: true,
+          status: true,
+          paymentStatus: true,
+          fulfillmentStatus: true,
+          totalMinor: true,
+          createdAt: true,
+          updatedAt: true,
+          _count: { select: { items: true } },
+        },
+      }),
+      this.prisma.order.count({ where }),
+    ]);
+
+    return {
+      items: items.map((order) => ({
+        id: order.id,
+        customerId: order.customerId,
+        customerFullName: order.customerFullName,
+        customerEmail: order.customerEmail,
+        customerPhone: order.customerPhone,
+        shippingAddress: order.shippingAddress,
+        status: order.status,
+        paymentStatus: order.paymentStatus,
+        fulfillmentStatus: order.fulfillmentStatus,
+        totalMinor: order.totalMinor,
+        itemsCount: order._count.items,
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt,
+      })),
+      pagination: {
+        limit: query.limit,
+        offset: query.offset,
+        total,
+      },
+    };
   }
 
   async getById(orderId: string) {
@@ -377,6 +446,7 @@ export class OrdersService {
   private async transitionStatus(
     orderId: string,
     dto: Pick<UpdateOrderStatusDto, 'toStatus' | 'comment'>,
+    actorId?: ActorId,
   ) {
     return this.prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
@@ -412,6 +482,7 @@ export class OrdersService {
             create: {
               fromStatus: order.status,
               toStatus: dto.toStatus,
+              ...(actorId ? { changedById: actorId } : {}),
               comment:
                 dto.comment ??
                 this.getDefaultTransitionComment(order.status, dto.toStatus),
@@ -452,6 +523,7 @@ export class OrdersService {
   private async transitionLifecycle(
     orderId: string,
     transition: OrderLifecycleTransition,
+    actorId?: ActorId,
   ) {
     return this.prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
@@ -489,7 +561,7 @@ export class OrdersService {
           paymentStatus: nextState.paymentStatus,
           fulfillmentStatus: nextState.fulfillmentStatus,
           statusHistory: {
-            create: this.buildLifecycleHistoryEntries(order, transition, nextState),
+            create: this.buildLifecycleHistoryEntries(order, transition, nextState, actorId),
           },
         },
         include: {
@@ -578,6 +650,7 @@ export class OrdersService {
     order: OrderLifecycleState,
     transition: OrderLifecycleTransition,
     nextState: OrderLifecycleState,
+    actorId?: ActorId,
   ): Prisma.OrderStatusHistoryCreateWithoutOrderInput[] {
     const entries: Prisma.OrderStatusHistoryCreateWithoutOrderInput[] = [];
 
@@ -586,6 +659,7 @@ export class OrdersService {
         statusDimension: OrderStatusDimension.ORDER,
         fromStatus: order.status,
         toStatus: nextState.status,
+        ...(actorId ? { changedById: actorId } : {}),
         comment: transition.comment,
       });
     }
@@ -595,6 +669,7 @@ export class OrdersService {
         statusDimension: OrderStatusDimension.PAYMENT,
         fromPaymentStatus: order.paymentStatus,
         toPaymentStatus: nextState.paymentStatus,
+        ...(actorId ? { changedById: actorId } : {}),
         comment: transition.comment,
       });
     }
@@ -604,6 +679,7 @@ export class OrdersService {
         statusDimension: OrderStatusDimension.FULFILLMENT,
         fromFulfillmentStatus: order.fulfillmentStatus,
         toFulfillmentStatus: nextState.fulfillmentStatus,
+        ...(actorId ? { changedById: actorId } : {}),
         comment: transition.comment,
       });
     }

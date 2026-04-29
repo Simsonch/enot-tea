@@ -1,0 +1,72 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, Arial, sans-serif;
+  background: #f8f8f8;
+  color: #171717;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+main {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px 16px 40px;
+}
+
+.stack {
+  display: grid;
+  gap: 12px;
+}
+
+.card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  padding: 16px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.muted {
+  color: #666;
+}
+
+.error {
+  color: #9f1239;
+}
+
+.success {
+  color: #166534;
+}
+
+.grid {
+  display: grid;
+  gap: 12px;
+}
+
+@media (min-width: 760px) {
+  .grid-two {
+    grid-template-columns: 1fr 1fr;
+  }
+}

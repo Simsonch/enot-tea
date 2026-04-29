@@ -1,12 +1,12 @@
-# Локальная разработка: витрина и админка (планируется)
+# Локальная разработка: витрина и админка
 
 ## Цель
-Дать безопасный onboarding-процесс для `apps/storefront` и `apps/admin` до начала активной frontend-разработки, не создавая ложного впечатления, что приложения уже реализованы.
+Дать быстрый и предсказуемый onboarding для локального запуска `apps/storefront` и будущей `apps/admin`.
 
 ## Текущее состояние реализации
-- `apps/storefront` — `planned` (папка создана, production-ready UI не реализован).
-- `apps/admin` — `planned` (папка создана, production-ready UI не реализован).
-- Каноничный backend-контур для интеграции уже реализован в `apps/api`.
+- `apps/storefront` — реализован MVP-поток гостевого checkout: каталог, корзина, checkout, thank-you.
+- `apps/admin` — `planned`.
+- Backend-контур для интеграции — `apps/api`.
 
 ## Предпосылки
 - Выполнен базовый setup из `docs/runbooks/local-dev.md`:
@@ -16,23 +16,36 @@
 - Прочитан `docs/project-overview.md` (границы MVP и статус модулей).
 - Прочитан `docs/architecture/orders-api-contract-matrix.md` (контракты `orders`).
 
-## Чеклист готовности workspace
-- [ ] В `apps/storefront` и `apps/admin` присутствуют директории приложений.
-- [ ] В `pnpm-workspace.yaml` включены `apps/*` и `packages/*`.
-- [ ] Команда `pnpm -r list --depth -1` выполняется успешно.
-- [ ] Backend API доступен локально через `pnpm start:back:dev`.
-- [ ] Подтверждены базовые API endpoint-ы (`GET /health/db`, `GET /products`).
+## Быстрый старт storefront
+1. В одном терминале запустите API:
+   - `pnpm start:back:dev`
+2. Во втором терминале создайте локальный env:
+   - `cp apps/storefront/.env.example apps/storefront/.env.local`
+3. Запустите storefront:
+   - `pnpm --filter @enot-tea/storefront dev`
+4. Откройте `http://localhost:3100`.
+
+## Runtime-конфиг storefront
+- `API_BASE_URL` — базовый URL API для dev rewrites Next.js.
+- Если не задано, storefront использует `http://localhost:3000`.
+- Запросы к `/products` и `/orders` проксируются через Next rewrites, поэтому на клиенте не требуется ручная настройка CORS.
+
+## Чеклист smoke (гостевой checkout)
+- [ ] На `/` отображается каталог товаров из `GET /products`.
+- [ ] Добавление товара увеличивает корзину и корректно считает total.
+- [ ] На `/checkout` форма отправляет `POST /orders` и ведёт на `thank-you/:orderId`.
+- [ ] Для `VALIDATION_ERROR` (400) отображаются ошибки полей.
+- [ ] Для `INSUFFICIENT_STOCK` (409) показывается понятное сообщение без потери корзины.
+- [ ] При сетевом сбое отображается fallback-сообщение и доступен повторный submit.
 
 ## Рекомендуемый онбординг
-1. Подтвердить backend-контракт как единственный source of truth для UI-интеграции:
+1. Подтвердить backend-контракт как source of truth:
    - `docs/architecture/orders-api-contract-matrix.md`;
    - `docs/adr/0003-order-lifecycle-policy.md`;
    - `docs/adr/0004-api-error-contract-standard.md`.
-2. Зафиксировать frontend scope первого шага:
-   - storefront: read flow каталога и базовый checkout UX (без production-критериев);
-   - admin: просмотр заказов и управление статусами в пределах текущего API.
-3. Определить контрактные mock-сценарии на основе актуальных response/error кодов API.
-4. Перед реализацией UI зафиксировать отдельный sprint backlog для frontend-задач.
+2. Для изменений API перед проверкой storefront обновлять клиент:
+   - `pnpm api-client:regen`
+3. Для регрессии storefront использовать smoke checklist выше.
 
 ## Бэкенд-эндпоинты для интеграции с фронтендом
 - `GET /products?limit=&offset=&isActive=`
@@ -49,13 +62,11 @@
 
 ## Вне scope этого runbook
 - Не описывает production deployment storefront/admin.
-- Не фиксирует финальный UI stack и сборочные команды приложений (до отдельного согласования).
 - Не заменяет release/incident/rollback runbooks.
 
-## Критерии передачи в фронтенд-спринт
-- Согласован frontend sprint backlog с owner и приоритетами.
-- Определен минимальный UI contract-test набор для `catalog/orders`.
-- Подтверждено отсутствие противоречий с `project-overview`, ADR и API contract matrix.
+## Критерии готовности локальной среды
+- API и storefront одновременно запускаются локально без ручного CORS workaround.
+- Smoke checkout проходит по чеклисту.
 
 ## Ссылки
 - `docs/project-overview.md`

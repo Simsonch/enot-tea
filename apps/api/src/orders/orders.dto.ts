@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayMinSize,
+  IsDateString,
   IsEmail,
   IsArray,
   IsIn,
@@ -8,6 +9,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
   Min,
   ValidateNested,
@@ -82,6 +84,40 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
   items!: CreateOrderItemDto[];
+}
+
+export class GetOrdersQueryDto {
+  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit = 20;
+
+  @ApiPropertyOptional({ default: 0, minimum: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  offset = 0;
+
+  @ApiPropertyOptional({ enum: OrderStatus, enumName: 'OrderStatus' })
+  @IsOptional()
+  @IsIn(Object.values(OrderStatus), {
+    message: 'status должен быть одним из значений OrderStatus.',
+  })
+  status?: OrderStatus;
+
+  @ApiPropertyOptional({ type: 'string', format: 'date-time' })
+  @IsOptional()
+  @IsDateString({}, { message: 'from должен быть датой в ISO 8601.' })
+  from?: string;
+
+  @ApiPropertyOptional({ type: 'string', format: 'date-time' })
+  @IsOptional()
+  @IsDateString({}, { message: 'to должен быть датой в ISO 8601.' })
+  to?: string;
 }
 
 export class UpdateOrderStatusDto {

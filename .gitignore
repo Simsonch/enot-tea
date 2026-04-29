@@ -2,3 +2,6 @@ node_modules
 .cursor
 .vscode
 dist
+.next
+*.tsbuildinfo
+.env.local

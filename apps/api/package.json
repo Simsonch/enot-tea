@@ -13,6 +13,7 @@
     "db:pull": "prisma db pull",
     "db:studio": "prisma studio",
     "db:validate": "prisma validate",
+    "owner:create": "node --import tsx ./tools/create-owner.ts",
     "openapi:export": "node --import tsx ./tools/openapi-export.ts",
     "postinstall": "prisma generate",
     "start": "nest start",
@@ -27,6 +28,7 @@
   "dependencies": {
     "@nestjs/common": "^11.1.19",
     "@nestjs/core": "^11.1.19",
+    "@nestjs/jwt": "^11.0.2",
     "@nestjs/platform-express": "^11.1.19",
     "@nestjs/swagger": "^11.2.0",
     "@prisma/client": "^6.19.3",

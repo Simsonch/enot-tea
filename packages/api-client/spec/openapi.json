@@ -73,17 +73,58 @@
         ]
       }
     },
-    "/orders/{id}": {
+    "/orders": {
       "get": {
-        "operationId": "OrdersController_getById",
+        "operationId": "OrdersController_list",
         "parameters": [
           {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "description": "Идентификатор заказа",
+            "name": "to",
+            "required": false,
+            "in": "query",
+            "description": "ISO 8601 createdAt upper bound",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "required": false,
+            "in": "query",
+            "description": "ISO 8601 createdAt lower bound",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "enum": [
+                "NEW",
+                "CONFIRMED",
+                "PACKED",
+                "SHIPPED",
+                "DELIVERED",
+                "CANCELLED"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "name": "offset",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
             }
           }
         ],
@@ -93,29 +134,52 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrderResponseDto"
+                  "$ref": "#/components/schemas/OrdersListResponseDto"
                 }
               }
             }
           },
-          "404": {
-            "description": "Заказ не найден",
+          "400": {
+            "description": "Некорректные query params",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiNotFoundErrorBodyDto"
+                  "$ref": "#/components/schemas/ApiValidationErrorBodyDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Не передан или недействителен Bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiAuthErrorBodyDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Пользователь не является владельцем",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiAuthErrorBodyDto"
                 }
               }
             }
           }
         },
-        "summary": "Получить заказ: снимок гостя, позиции, статусы, история",
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Owner-only список заказов с фильтрами и пагинацией",
         "tags": [
           "orders"
         ]
-      }
-    },
-    "/orders": {
+      },
       "post": {
         "description": "Публичный контракт ADR 0005: поля снимка покупателя обязательны; customerId — опционально для связанных негостевых заказов.",
         "operationId": "OrdersController_create",
@@ -178,6 +242,73 @@
         ]
       }
     },
+    "/orders/{id}": {
+      "get": {
+        "operationId": "OrdersController_getById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Идентификатор заказа",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Не передан или недействителен Bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiAuthErrorBodyDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Пользователь не является владельцем",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiAuthErrorBodyDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Заказ не найден",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiNotFoundErrorBodyDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Получить заказ: снимок гостя, позиции, статусы, история",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
     "/orders/{id}/cancel": {
       "patch": {
         "operationId": "OrdersController_cancel",
@@ -223,6 +354,26 @@
               }
             }
           },
+          "401": {
+            "description": "Не передан или недействителен Bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiAuthErrorBodyDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Пользователь не является владельцем",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiAuthErrorBodyDto"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Заказ или склад не найдены",
             "content": {
@@ -244,6 +395,11 @@
             }
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Отменить ещё не отгруженный заказ и снять резерв",
         "tags": [
           "orders"
@@ -295,6 +451,26 @@
               }
             }
           },
+          "401": {
+            "description": "Не передан или недействителен Bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiAuthErrorBodyDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Пользователь не является владельцем",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiAuthErrorBodyDto"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Заказ не найден",
             "content": {
@@ -316,6 +492,11 @@
             }
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Отметить, что счёт вручную отправлен",
         "tags": [
           "orders"
@@ -367,6 +548,26 @@
               }
             }
           },
+          "401": {
+            "description": "Не передан или недействителен Bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiAuthErrorBodyDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Пользователь не является владельцем",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiAuthErrorBodyDto"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Заказ не найден",
             "content": {
@@ -388,6 +589,11 @@
             }
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Подтвердить ручную оплату",
         "tags": [
           "orders"
@@ -439,6 +645,26 @@
               }
             }
           },
+          "401": {
+            "description": "Не передан или недействителен Bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiAuthErrorBodyDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Пользователь не является владельцем",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiAuthErrorBodyDto"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Заказ или склад не найдены",
             "content": {
@@ -460,6 +686,11 @@
             }
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Передать заказ в доставку, уменьшить onHand и reserved на складе",
         "tags": [
           "orders"
@@ -511,6 +742,26 @@
               }
             }
           },
+          "401": {
+            "description": "Не передан или недействителен Bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiAuthErrorBodyDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Пользователь не является владельцем",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiAuthErrorBodyDto"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Заказ не найден",
             "content": {
@@ -532,6 +783,11 @@
             }
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Подтвердить получение покупателем / доставку",
         "tags": [
           "orders"
@@ -583,6 +839,26 @@
               }
             }
           },
+          "401": {
+            "description": "Не передан или недействителен Bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiAuthErrorBodyDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Пользователь не является владельцем",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiAuthErrorBodyDto"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Заказ или склад не найдены",
             "content": {
@@ -604,9 +880,66 @@
             }
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Устаревший эндпоинт смены единого статуса",
         "tags": [
           "orders"
+        ]
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiValidationErrorBodyDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Неверные owner credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiAuthErrorBodyDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Войти владельцем и получить JWT Bearer token",
+        "tags": [
+          "auth"
         ]
       }
     }
@@ -625,6 +958,13 @@
     }
   ],
   "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
     "schemas": {
       "HealthDbResponseDto": {
         "type": "object",
@@ -743,6 +1083,187 @@
           "HANDED_TO_CARRIER",
           "DELIVERED",
           "RETURNED"
+        ]
+      },
+      "OrderListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "customerId": {
+            "type": "string",
+            "nullable": true
+          },
+          "customerFullName": {
+            "type": "string"
+          },
+          "customerEmail": {
+            "type": "string",
+            "format": "email"
+          },
+          "customerPhone": {
+            "type": "string",
+            "nullable": true
+          },
+          "shippingAddress": {
+            "type": "string"
+          },
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OrderStatus"
+              }
+            ]
+          },
+          "paymentStatus": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PaymentStatus"
+              }
+            ]
+          },
+          "fulfillmentStatus": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FulfillmentStatus"
+              }
+            ]
+          },
+          "totalMinor": {
+            "type": "number"
+          },
+          "itemsCount": {
+            "type": "number"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "customerId",
+          "customerFullName",
+          "customerEmail",
+          "customerPhone",
+          "shippingAddress",
+          "status",
+          "paymentStatus",
+          "fulfillmentStatus",
+          "totalMinor",
+          "itemsCount",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "OrderPaginationDto": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "number"
+          },
+          "offset": {
+            "type": "number"
+          },
+          "total": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "limit",
+          "offset",
+          "total"
+        ]
+      },
+      "OrdersListResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderListItemDto"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/OrderPaginationDto"
+          }
+        },
+        "required": [
+          "items",
+          "pagination"
+        ]
+      },
+      "ValidationErrorField": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string",
+            "example": "toStatus"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "field",
+          "messages"
+        ]
+      },
+      "ApiValidationErrorBodyDto": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 400
+          },
+          "code": {
+            "type": "string",
+            "example": "VALIDATION_ERROR"
+          },
+          "message": {
+            "type": "string"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidationErrorField"
+            }
+          }
+        },
+        "required": [
+          "statusCode",
+          "code",
+          "message"
+        ]
+      },
+      "ApiAuthErrorBodyDto": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 401
+          },
+          "code": {
+            "type": "string",
+            "example": "AUTH_REQUIRED",
+            "description": "Один из: AUTH_REQUIRED, AUTH_INVALID_TOKEN, AUTH_INVALID_CREDENTIALS, OWNER_ONLY"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "statusCode",
+          "code",
+          "message"
         ]
       },
       "OrderItemResponseDto": {
@@ -1038,52 +1559,6 @@
           "items"
         ]
       },
-      "ValidationErrorField": {
-        "type": "object",
-        "properties": {
-          "field": {
-            "type": "string",
-            "example": "toStatus"
-          },
-          "messages": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "field",
-          "messages"
-        ]
-      },
-      "ApiValidationErrorBodyDto": {
-        "type": "object",
-        "properties": {
-          "statusCode": {
-            "type": "number",
-            "example": 400
-          },
-          "code": {
-            "type": "string",
-            "example": "VALIDATION_ERROR"
-          },
-          "message": {
-            "type": "string"
-          },
-          "errors": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ValidationErrorField"
-            }
-          }
-        },
-        "required": [
-          "statusCode",
-          "code",
-          "message"
-        ]
-      },
       "ApiBusinessConflictBodyDto": {
         "type": "object",
         "properties": {
@@ -1139,6 +1614,56 @@
         },
         "required": [
           "toStatus"
+        ]
+      },
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "owner@example.com"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "LoginResponseDto": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "description": "JWT Bearer token для owner-only API."
+          },
+          "tokenType": {
+            "type": "string",
+            "example": "Bearer"
+          },
+          "expiresIn": {
+            "type": "number",
+            "example": 3600
+          },
+          "ownerId": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          }
+        },
+        "required": [
+          "accessToken",
+          "tokenType",
+          "expiresIn",
+          "ownerId",
+          "email"
         ]
       }
     }

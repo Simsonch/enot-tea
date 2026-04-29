@@ -11,7 +11,7 @@
   },
   "scripts": {
     "build": "tsc --noEmit",
-    "gen": "orval --config orval.config.ts",
+    "gen": "orval --config orval.config.ts && node ./tools/strip-generated-whitespace.mjs",
     "typecheck": "tsc --noEmit",
     "test": "tsc --noEmit"
   },

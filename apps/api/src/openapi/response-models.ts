@@ -74,6 +74,66 @@ export class OrderItemResponseDto {
   totalMinor!: number;
 }
 
+export class OrderListItemDto {
+  @ApiProperty({ type: 'string' })
+  id!: string;
+
+  @ApiProperty({ type: 'string', nullable: true })
+  customerId!: string | null;
+
+  @ApiProperty({ type: 'string' })
+  customerFullName!: string;
+
+  @ApiProperty({ type: 'string', format: 'email' })
+  customerEmail!: string;
+
+  @ApiProperty({ type: 'string', nullable: true })
+  customerPhone!: string | null;
+
+  @ApiProperty({ type: 'string' })
+  shippingAddress!: string;
+
+  @ApiProperty({ enum: OrderStatus, enumName: 'OrderStatus' })
+  status!: OrderStatus;
+
+  @ApiProperty({ enum: paymentStatuses, enumName: 'PaymentStatus' })
+  paymentStatus!: PaymentStatus;
+
+  @ApiProperty({ enum: fulfillmentStatuses, enumName: 'FulfillmentStatus' })
+  fulfillmentStatus!: FulfillmentStatus;
+
+  @ApiProperty({ type: 'number' })
+  totalMinor!: number;
+
+  @ApiProperty({ type: 'number' })
+  itemsCount!: number;
+
+  @ApiProperty({ type: 'string', format: 'date-time' })
+  createdAt!: string;
+
+  @ApiProperty({ type: 'string', format: 'date-time' })
+  updatedAt!: string;
+}
+
+export class OrderPaginationDto {
+  @ApiProperty({ type: 'number' })
+  limit!: number;
+
+  @ApiProperty({ type: 'number' })
+  offset!: number;
+
+  @ApiProperty({ type: 'number' })
+  total!: number;
+}
+
+export class OrdersListResponseDto {
+  @ApiProperty({ type: () => [OrderListItemDto] })
+  items!: OrderListItemDto[];
+
+  @ApiProperty({ type: () => OrderPaginationDto })
+  pagination!: OrderPaginationDto;
+}
+
 export class OrderStatusHistoryEntryDto {
   @ApiProperty({ type: 'string' })
   id!: string;

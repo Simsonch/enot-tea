@@ -1,7 +1,13 @@
 import 'reflect-metadata';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { BadRequestException, ConflictException, NotFoundException, ValidationPipe } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+  UnauthorizedException,
+  ValidationPipe,
+} from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { FulfillmentStatus, OrderStatus, PaymentStatus } from '@prisma/client';
@@ -9,18 +15,26 @@ import { OrdersController } from './orders.controller.js';
 import { OrdersService } from './orders.service.js';
 import {
   CreateOrderDto,
+  GetOrdersQueryDto,
   ManualOrderLifecycleTransitionDto,
   UpdateOrderStatusDto,
 } from './orders.dto.js';
 import { formatValidationFieldErrors } from '../common/validation-error-format.js';
+import { OwnerAuthGuard } from '../auth/owner-auth.guard.js';
 
 // `tsx` test runtime may miss design-time metadata for decorated parameters.
 // Define it explicitly so ValidationPipe can validate DTO on the API boundary.
 Reflect.defineMetadata(
   'design:paramtypes',
-  [String, ManualOrderLifecycleTransitionDto],
+  [String, ManualOrderLifecycleTransitionDto, Object],
   OrdersController.prototype,
   'cancel',
+);
+Reflect.defineMetadata(
+  'design:paramtypes',
+  [GetOrdersQueryDto],
+  OrdersController.prototype,
+  'list',
 );
 Reflect.defineMetadata(
   'design:paramtypes',
@@ -36,32 +50,40 @@ for (const methodName of [
 ]) {
   Reflect.defineMetadata(
     'design:paramtypes',
-    [String, ManualOrderLifecycleTransitionDto],
+    [String, ManualOrderLifecycleTransitionDto, Object],
     OrdersController.prototype,
     methodName,
   );
 }
 Reflect.defineMetadata(
   'design:paramtypes',
-  [String, UpdateOrderStatusDto],
+  [String, UpdateOrderStatusDto, Object],
   OrdersController.prototype,
   'updateStatus',
 );
 
 async function createApp(overrides?: {
+  guardCanActivate?: (context: unknown) => boolean | Promise<boolean>;
+  list?: (query: GetOrdersQueryDto) => Promise<unknown>;
   create?: (dto: CreateOrderDto) => Promise<unknown>;
-  updateStatus?: (id: string, dto: { toStatus: OrderStatus; comment?: string }) => Promise<unknown>;
-  cancel?: (id: string, dto?: ManualOrderLifecycleTransitionDto) => Promise<unknown>;
-  markInvoiceSent?: (id: string, dto?: ManualOrderLifecycleTransitionDto) => Promise<unknown>;
-  confirmPayment?: (id: string, dto?: ManualOrderLifecycleTransitionDto) => Promise<unknown>;
-  handOffToDelivery?: (id: string, dto?: ManualOrderLifecycleTransitionDto) => Promise<unknown>;
-  confirmDelivered?: (id: string, dto?: ManualOrderLifecycleTransitionDto) => Promise<unknown>;
+  updateStatus?: (id: string, dto: { toStatus: OrderStatus; comment?: string }, actorId?: string) => Promise<unknown>;
+  cancel?: (id: string, dto?: ManualOrderLifecycleTransitionDto, actorId?: string) => Promise<unknown>;
+  markInvoiceSent?: (id: string, dto?: ManualOrderLifecycleTransitionDto, actorId?: string) => Promise<unknown>;
+  confirmPayment?: (id: string, dto?: ManualOrderLifecycleTransitionDto, actorId?: string) => Promise<unknown>;
+  handOffToDelivery?: (id: string, dto?: ManualOrderLifecycleTransitionDto, actorId?: string) => Promise<unknown>;
+  confirmDelivered?: (id: string, dto?: ManualOrderLifecycleTransitionDto, actorId?: string) => Promise<unknown>;
 }) {
   let createCalls = 0;
   let updateStatusCalls = 0;
   let cancelCalls = 0;
 
   const ordersServiceMock = {
+    list:
+      overrides?.list ??
+      (async (query: GetOrdersQueryDto) => ({
+        items: [],
+        pagination: { limit: query.limit, offset: query.offset, total: 0 },
+      })),
     getById: async () => ({}),
     create:
       overrides?.create ??
@@ -150,11 +172,23 @@ async function createApp(overrides?: {
         };
       }),
   };
+  const guardMock = {
+    canActivate:
+      overrides?.guardCanActivate ??
+      ((context: any) => {
+        context.switchToHttp().getRequest().owner = {
+          id: 'owner-1',
+          email: 'owner@example.com',
+        };
+        return true;
+      }),
+  };
 
-  const moduleRef = await Test.createTestingModule({
+  const moduleBuilder = Test.createTestingModule({
     controllers: [OrdersController],
     providers: [{ provide: OrdersService, useValue: ordersServiceMock }],
-  }).compile();
+  }).overrideGuard(OwnerAuthGuard).useValue(guardMock);
+  const moduleRef = await moduleBuilder.compile();
 
   const app = moduleRef.createNestApplication();
   app.useGlobalPipes(
@@ -291,6 +325,84 @@ test('POST /orders: invalid email returns 400 VALIDATION_ERROR', async () => {
     assert.equal(response.body.errors[0].field, 'customerEmail');
     assert.ok(Array.isArray(response.body.errors[0].messages));
     assert.equal(getCreateCalls(), 0);
+  } finally {
+    await app.close();
+  }
+});
+
+test('GET /orders: owner-only list passes filters and pagination to service', async () => {
+  let receivedQuery: GetOrdersQueryDto | undefined;
+  const { app } = await createApp({
+    list: async (query) => {
+      receivedQuery = query;
+      return {
+        items: [
+          {
+            id: 'order-1',
+            customerFullName: 'Иван Иванов',
+            customerEmail: 'ivan@example.com',
+            customerPhone: null,
+            shippingAddress: 'Тбилиси',
+            status: OrderStatus.NEW,
+            paymentStatus: PaymentStatus.PENDING,
+            fulfillmentStatus: FulfillmentStatus.RESERVED,
+            totalMinor: 100,
+            itemsCount: 1,
+            createdAt: new Date('2026-04-29T00:00:00.000Z').toISOString(),
+            updatedAt: new Date('2026-04-29T00:00:00.000Z').toISOString(),
+          },
+        ],
+        pagination: { limit: query.limit, offset: query.offset, total: 1 },
+      };
+    },
+  });
+
+  try {
+    const response = await request(app.getHttpServer())
+      .get('/orders?limit=10&offset=5&status=NEW&from=2026-04-01T00:00:00.000Z')
+      .expect(200);
+
+    assert.equal(receivedQuery?.limit, 10);
+    assert.equal(receivedQuery?.offset, 5);
+    assert.equal(receivedQuery?.status, OrderStatus.NEW);
+    assert.equal(receivedQuery?.from, '2026-04-01T00:00:00.000Z');
+    assert.equal(response.body.items[0].id, 'order-1');
+    assert.deepEqual(response.body.pagination, { limit: 10, offset: 5, total: 1 });
+  } finally {
+    await app.close();
+  }
+});
+
+test('GET /orders: invalid status query returns 400 VALIDATION_ERROR', async () => {
+  const { app } = await createApp();
+
+  try {
+    const response = await request(app.getHttpServer())
+      .get('/orders?status=UNKNOWN')
+      .expect(400);
+
+    assert.equal(response.body.code, 'VALIDATION_ERROR');
+    assert.equal(response.body.errors[0].field, 'status');
+  } finally {
+    await app.close();
+  }
+});
+
+test('GET /orders/:id: missing Bearer token returns 401', async () => {
+  const { app } = await createApp({
+    guardCanActivate: () => {
+      throw new UnauthorizedException({
+        statusCode: 401,
+        code: 'AUTH_REQUIRED',
+        message: 'Требуется Bearer token владельца.',
+      });
+    },
+  });
+
+  try {
+    const response = await request(app.getHttpServer()).get('/orders/order-1').expect(401);
+
+    assert.equal(response.body.code, 'AUTH_REQUIRED');
   } finally {
     await app.close();
   }
@@ -518,13 +630,16 @@ test('PATCH /orders/:id/delivered: returns DELIVERED statuses', async () => {
 
 test('manual lifecycle endpoints pass optional comment payload to service', async () => {
   const receivedComments: Record<string, string | undefined> = {};
+  const receivedActors: Record<string, string | undefined> = {};
   const { app } = await createApp({
-    cancel: async (id, dto) => {
+    cancel: async (id, dto, actorId) => {
       receivedComments.cancel = dto?.comment;
+      receivedActors.cancel = actorId;
       return { id, status: OrderStatus.CANCELLED, items: [], statusHistory: [] };
     },
-    markInvoiceSent: async (id, dto) => {
+    markInvoiceSent: async (id, dto, actorId) => {
       receivedComments.invoiceSent = dto?.comment;
+      receivedActors.invoiceSent = actorId;
       return {
         id,
         status: OrderStatus.CONFIRMED,
@@ -534,8 +649,9 @@ test('manual lifecycle endpoints pass optional comment payload to service', asyn
         statusHistory: [],
       };
     },
-    confirmPayment: async (id, dto) => {
+    confirmPayment: async (id, dto, actorId) => {
       receivedComments.paymentConfirmed = dto?.comment;
+      receivedActors.paymentConfirmed = actorId;
       return {
         id,
         status: OrderStatus.PACKED,
@@ -545,8 +661,9 @@ test('manual lifecycle endpoints pass optional comment payload to service', asyn
         statusHistory: [],
       };
     },
-    handOffToDelivery: async (id, dto) => {
+    handOffToDelivery: async (id, dto, actorId) => {
       receivedComments.handoffToDelivery = dto?.comment;
+      receivedActors.handoffToDelivery = actorId;
       return {
         id,
         status: OrderStatus.SHIPPED,
@@ -556,8 +673,9 @@ test('manual lifecycle endpoints pass optional comment payload to service', asyn
         statusHistory: [],
       };
     },
-    confirmDelivered: async (id, dto) => {
+    confirmDelivered: async (id, dto, actorId) => {
       receivedComments.delivered = dto?.comment;
+      receivedActors.delivered = actorId;
       return {
         id,
         status: OrderStatus.DELIVERED,
@@ -597,6 +715,13 @@ test('manual lifecycle endpoints pass optional comment payload to service', asyn
       paymentConfirmed: 'bank transfer received',
       handoffToDelivery: 'carrier pickup',
       delivered: 'customer confirmed',
+    });
+    assert.deepEqual(receivedActors, {
+      cancel: 'owner-1',
+      invoiceSent: 'owner-1',
+      paymentConfirmed: 'owner-1',
+      handoffToDelivery: 'owner-1',
+      delivered: 'owner-1',
     });
   } finally {
     await app.close();

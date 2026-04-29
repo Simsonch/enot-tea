@@ -37,6 +37,7 @@ type OpenApiOperation = {
   >;
   summary?: string;
   description?: string;
+  security?: Array<Record<string, unknown>>;
 };
 
 test('OpenAPI document includes expected paths and order operations', async () => {
@@ -58,7 +59,15 @@ test('OpenAPI document includes expected paths and order operations', async () =
     );
     assert.deepEqual(productQueryParams.sort(), ['isActive', 'limit', 'offset']);
     assert.ok(paths['/orders']?.post, 'order create is documented');
+    const authLogin = paths['/auth/login']?.post as OpenApiOperation | undefined;
+    assert.ok(authLogin, 'owner login is documented');
+    assert.ok(document.components?.securitySchemes?.bearer, 'bearer auth is documented');
     const schemas = (document.components?.schemas ?? {}) as Record<string, OpenApiSchema>;
+    assert.ok(schemas.ApiAuthErrorBodyDto, 'auth error response body is documented');
+    assert.equal(
+      authLogin.responses?.['401']?.content?.['application/json']?.schema?.$ref,
+      '#/components/schemas/ApiAuthErrorBodyDto',
+    );
     const createOrderSchema = schemas.CreateOrderDto;
     assert.ok(createOrderSchema, 'order create schema is documented');
     assert.deepEqual(createOrderSchema.required?.sort(), [
@@ -89,8 +98,29 @@ test('OpenAPI document includes expected paths and order operations', async () =
     assert.equal(historyEntrySchema.properties?.fromPaymentStatus?.nullable, true);
     assert.ok(schemas.ApiNotFoundErrorBodyDto, 'not-found response body is documented');
     const orderById = '/orders/{id}';
+    const ordersList = paths['/orders']?.get as OpenApiOperation | undefined;
+    assert.ok(ordersList, 'owner order list is documented');
+    assert.deepEqual(ordersList.security, [{ bearer: [] }]);
+    assert.ok(schemas.OrdersListResponseDto, 'orders list response is documented');
+    assert.equal(
+      ordersList.responses?.['401']?.content?.['application/json']?.schema?.$ref,
+      '#/components/schemas/ApiAuthErrorBodyDto',
+    );
+    assert.equal(
+      ordersList.responses?.['403']?.content?.['application/json']?.schema?.$ref,
+      '#/components/schemas/ApiAuthErrorBodyDto',
+    );
     const orderGet = paths[orderById]?.get as OpenApiOperation | undefined;
     assert.ok(orderGet, 'order get by id is documented');
+    assert.deepEqual(orderGet.security, [{ bearer: [] }]);
+    assert.equal(
+      orderGet.responses?.['401']?.content?.['application/json']?.schema?.$ref,
+      '#/components/schemas/ApiAuthErrorBodyDto',
+    );
+    assert.equal(
+      orderGet.responses?.['403']?.content?.['application/json']?.schema?.$ref,
+      '#/components/schemas/ApiAuthErrorBodyDto',
+    );
     const idParam = ((orderGet.parameters ?? []) as OpenApiParameter[]).find(
       (parameter) => parameter.name === 'id',
     );

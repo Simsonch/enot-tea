@@ -21,12 +21,23 @@
 - Отмена выполняется через `PATCH /orders/:id/cancel`.
 - Все успешные значимые переходы обязаны писать запись в `OrderStatusHistory`.
 - `OrderStatusHistory` хранит историю трех измерений через `statusDimension = ORDER | PAYMENT | FULFILLMENT`.
-- `changedById` в `OrderStatusHistory` остается `null`, пока в API нет auth владельца/оператора.
+- `changedById` в `OrderStatusHistory` заполняется id владельца для protected ручных переходов после Sprint 7 auth; guest create остается `null`.
 - `Product.isActive = false` нельзя оформить в заказ.
 - Каноничное списание `onHand` и `reserved` происходит на `PATCH /orders/:id/handoff-to-delivery`; создание заказа только резервирует `reserved`.
 - Новый заказ получает defaults: `status = NEW`, `paymentStatus = PENDING`, `fulfillmentStatus = RESERVED`.
 
 ## Эндпоинты
+
+### `POST /auth/login`
+- Request:
+  - `email`, `password` owner-аккаунта.
+- Success:
+  - `200 OK` + `{ accessToken, tokenType, expiresIn, ownerId, email }`.
+- Error contracts:
+  - `400` + `VALIDATION_ERROR` — невалидный payload.
+  - `401` + `AUTH_INVALID_CREDENTIALS` — неверные данные или пользователь не owner.
+- Side effects:
+  - нет.
 
 ### `POST /orders`
 - Request:
@@ -47,51 +58,86 @@
   - статусы нового заказа: `status = NEW`, `paymentStatus = PENDING`, `fulfillmentStatus = RESERVED`.
 
 ### `GET /orders/:id`
+- Auth:
+  - owner-only Bearer token.
 - Success:
   - `200 OK` + заказ со snapshot-полями, `items`, `status`, `paymentStatus`, `fulfillmentStatus` и `statusHistory`.
 - Error contracts:
+  - `401` + `AUTH_REQUIRED` / `AUTH_INVALID_TOKEN` — нет или недействителен Bearer token.
+  - `403` + `OWNER_ONLY` — token не owner.
   - `404` — заказ не найден.
 - Side effects:
   - нет.
 
+### `GET /orders`
+- Auth:
+  - owner-only Bearer token.
+- Query:
+  - `limit` (default `20`, max `100`), `offset` (default `0`).
+  - optional `status`, `from`, `to` по `createdAt`.
+- Success:
+  - `200 OK` + `{ items, pagination }`, где `items` содержит guest snapshot, текущие статусы, `totalMinor`, `itemsCount`, `createdAt`, `updatedAt`.
+- Error contracts:
+  - `400` + `VALIDATION_ERROR` — невалидные query params.
+  - `401` + `AUTH_REQUIRED` / `AUTH_INVALID_TOKEN`.
+  - `403` + `OWNER_ONLY`.
+- Side effects:
+  - нет.
+
 ### `PATCH /orders/:id/cancel`
+- Auth:
+  - owner-only Bearer token.
 - Success:
   - `200 OK` + заказ в статусе `CANCELLED`; текущий `paymentStatus` сохраняется, `fulfillmentStatus` остается `RESERVED` для допустимого pre-shipment cancellation.
 - Error contracts:
   - `400` + `VALIDATION_ERROR` — невалидный optional payload (`comment`).
+  - `401` + `AUTH_REQUIRED` / `AUTH_INVALID_TOKEN`.
+  - `403` + `OWNER_ONLY`.
   - `404` — заказ не найден.
   - `409` + `INVALID_ORDER_STATUS_TRANSITION` — отмена из недопустимого статуса.
   - `409` + `INVENTORY_INVARIANT_VIOLATION` — неконсистентный `reserved` при снятии резерва.
 - Side effects:
   - если заказ еще не отгружен (`fulfillmentStatus = RESERVED`): `reserved = reserved - quantity` для каждой позиции.
   - если заказ еще не отгружен: запись `StockMovement` с `reason = ORDER_CANCEL_RELEASE`, `deltaReserved = -quantity`, в той же транзакции.
-  - запись в `OrderStatusHistory` (`fromStatus`, `toStatus`, `comment`, `changedById = null`).
+  - запись в `OrderStatusHistory` (`fromStatus`, `toStatus`, `comment`, `changedById = ownerId`).
 
 ### `PATCH /orders/:id/invoice-sent`
+- Auth:
+  - owner-only Bearer token.
 - Success:
   - `200 OK` + заказ со статусами `status = CONFIRMED`, `paymentStatus = INVOICE_SENT`, `fulfillmentStatus = RESERVED`.
 - Error contracts:
   - `400` + `VALIDATION_ERROR` — невалидный optional payload (`comment`).
+  - `401` + `AUTH_REQUIRED` / `AUTH_INVALID_TOKEN`.
+  - `403` + `OWNER_ONLY`.
   - `404` — заказ не найден.
   - `409` + `INVALID_ORDER_STATUS_TRANSITION` — текущая комбинация не `NEW / PENDING / RESERVED`.
 - Side effects:
   - записи в `OrderStatusHistory` для `ORDER` и `PAYMENT`.
 
 ### `PATCH /orders/:id/payment-confirmed`
+- Auth:
+  - owner-only Bearer token.
 - Success:
   - `200 OK` + заказ со статусами `status = PACKED`, `paymentStatus = PAID`, `fulfillmentStatus = RESERVED`.
 - Error contracts:
   - `400` + `VALIDATION_ERROR` — невалидный optional payload (`comment`).
+  - `401` + `AUTH_REQUIRED` / `AUTH_INVALID_TOKEN`.
+  - `403` + `OWNER_ONLY`.
   - `404` — заказ не найден.
   - `409` + `INVALID_ORDER_STATUS_TRANSITION` — текущая комбинация не `CONFIRMED / INVOICE_SENT / RESERVED`.
 - Side effects:
   - записи в `OrderStatusHistory` для `ORDER` и `PAYMENT`.
 
 ### `PATCH /orders/:id/handoff-to-delivery`
+- Auth:
+  - owner-only Bearer token.
 - Success:
   - `200 OK` + заказ со статусами `status = SHIPPED`, `paymentStatus = PAID`, `fulfillmentStatus = HANDED_TO_CARRIER`.
 - Error contracts:
   - `400` + `VALIDATION_ERROR` — невалидный optional payload (`comment`).
+  - `401` + `AUTH_REQUIRED` / `AUTH_INVALID_TOKEN`.
+  - `403` + `OWNER_ONLY`.
   - `404` — заказ или inventory row не найден.
   - `409` + `INVALID_ORDER_STATUS_TRANSITION` — текущая комбинация не `PACKED / PAID / RESERVED`.
   - `409` + `INVENTORY_INVARIANT_VIOLATION` — нарушение инвариантов склада.
@@ -101,29 +147,37 @@
   - записи в `OrderStatusHistory` для `ORDER` и `FULFILLMENT`.
 
 ### `PATCH /orders/:id/delivered`
+- Auth:
+  - owner-only Bearer token.
 - Success:
   - `200 OK` + заказ со статусами `status = DELIVERED`, `paymentStatus = PAID`, `fulfillmentStatus = DELIVERED`.
 - Error contracts:
   - `400` + `VALIDATION_ERROR` — невалидный optional payload (`comment`).
+  - `401` + `AUTH_REQUIRED` / `AUTH_INVALID_TOKEN`.
+  - `403` + `OWNER_ONLY`.
   - `404` — заказ не найден.
   - `409` + `INVALID_ORDER_STATUS_TRANSITION` — текущая комбинация не `SHIPPED / PAID / HANDED_TO_CARRIER`.
 - Side effects:
   - записи в `OrderStatusHistory` для `ORDER` и `FULFILLMENT`.
 
 ### `PATCH /orders/:id/status`
+- Auth:
+  - owner-only Bearer token.
 - Allowed `toStatus`:
   - `CONFIRMED`, `PACKED`, `SHIPPED`, `DELIVERED`.
 - Success:
   - `200 OK` + обновленный заказ с `items`, `paymentStatus`, `fulfillmentStatus` и `statusHistory`.
 - Error contracts:
   - `400` + `VALIDATION_ERROR` — отсутствует/некорректный `toStatus`.
+  - `401` + `AUTH_REQUIRED` / `AUTH_INVALID_TOKEN`.
+  - `403` + `OWNER_ONLY`.
   - `404` — заказ не найден.
   - `409` + `INVALID_ORDER_STATUS_TRANSITION` — переход запрещен матрицей статусов.
   - `409` + `INVENTORY_INVARIANT_VIOLATION` — нарушение инвариантов при `SHIPPED`.
 - Side effects:
   - legacy behavior: при `SHIPPED`: `onHand = onHand - quantity`, `reserved = reserved - quantity`.
   - при `SHIPPED`: запись `StockMovement` с `reason = ORDER_SHIP`, отрицательными `deltaOnHand`/`deltaReserved`, в той же транзакции.
-  - для каждого успешного перехода создается запись в `OrderStatusHistory` с `statusDimension = ORDER` (`changedById = null` до auth владельца).
+  - для каждого успешного перехода создается запись в `OrderStatusHistory` с `statusDimension = ORDER` и `changedById = ownerId`.
 
 ## Форма контракта ошибок
 - Для validation и business errors используется стабильная JSON-структура:
@@ -132,6 +186,10 @@
   - `message`
   - `errors[]` или `details` (по необходимости)
 - Ключевые коды для `orders`:
+  - `AUTH_REQUIRED`
+  - `AUTH_INVALID_TOKEN`
+  - `AUTH_INVALID_CREDENTIALS`
+  - `OWNER_ONLY`
   - `VALIDATION_ERROR`
   - `INSUFFICIENT_STOCK`
   - `PRODUCT_INACTIVE`

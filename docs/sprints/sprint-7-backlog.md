@@ -23,13 +23,15 @@
 
 ## Статус
 
-- [ ] P0 в работе/не завершен.
+- [x] P0 завершен: owner auth, protected orders API, `apps/admin`, OpenAPI/api-client.
+- [x] P1 завершен: фильтры status/date, runbook local-dev, admin smoke checklist.
+- [x] S7-009 закрыт в docs-only формате: ручной smoke зафиксирован в runbook.
 
 ## Ворота релиза: выход из спринта 7
 
-- [ ] E2E happy path на staging/local по чек-листу.
-- [ ] Публичные write-endpoints к заказам защищены owner-only.
-- [ ] P0 в backlog `done` или с defer note.
+- [x] E2E happy path на staging/local по чек-листу описан в `docs/runbooks/local-dev-storefront-admin.md`.
+- [x] Публичные write-endpoints к заказам защищены owner-only, кроме `POST /orders` для guest checkout.
+- [x] P0 в backlog `done`.
 
 ## Примечания
 

@@ -19,6 +19,25 @@ export class ApiValidationErrorBodyDto {
 }
 
 /**
+ * 401/403: ошибки owner-auth guard и login endpoint.
+ */
+export class ApiAuthErrorBodyDto {
+  @ApiProperty({ type: 'number', example: 401 })
+  statusCode!: number;
+
+  @ApiProperty({
+    type: 'string',
+    example: 'AUTH_REQUIRED',
+    description:
+      'Один из: AUTH_REQUIRED, AUTH_INVALID_TOKEN, AUTH_INVALID_CREDENTIALS, OWNER_ONLY',
+  })
+  code!: string;
+
+  @ApiProperty({ type: 'string' })
+  message!: string;
+}
+
+/**
  * 409: доменные/бизнес-правила (недопустимый переход статуса, инварианты склада, недостаток остатка).
  */
 export class ApiBusinessConflictBodyDto {

@@ -221,6 +221,20 @@ export class OrdersController {
     return this.ordersService.confirmDelivered(id, dto, owner.id);
   }
 
+  @Post(':id/notifications/resend')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(OwnerAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Повторно отправить актуальное email-уведомление по заказу' })
+  @ApiParam({ name: 'id', description: 'Идентификатор заказа', type: String })
+  @ApiOkResponse({ type: OrderResponseDto })
+  @ApiUnauthorizedResponse({ type: ApiAuthErrorBodyDto, description: 'Не передан или недействителен Bearer token' })
+  @ApiForbiddenResponse({ type: ApiAuthErrorBodyDto, description: 'Пользователь не является владельцем' })
+  @ApiNotFoundResponse({ type: ApiNotFoundErrorBodyDto, description: 'Заказ не найден' })
+  resendNotification(@Param('id') id: string) {
+    return this.ordersService.resendNotification(id);
+  }
+
   @Patch(':id/status')
   @UseGuards(OwnerAuthGuard)
   @ApiBearerAuth()

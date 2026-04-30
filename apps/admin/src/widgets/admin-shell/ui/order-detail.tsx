@@ -6,7 +6,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { readOwnerToken } from '@/src/shared/lib/auth-token';
 import { formatDate } from '@/src/shared/lib/format/format-date';
 import { formatPrice } from '@/src/shared/lib/format/format-price';
-import { fetchOrder, OrderAction, runOrderAction } from '@/src/shared/api/admin-api';
+import {
+  fetchOrder,
+  OrderAction,
+  resendOrderNotification,
+  runOrderAction,
+} from '@/src/shared/api/admin-api';
 
 const actions: Array<{ id: OrderAction; label: string }> = [
   { id: 'invoice-sent', label: 'Счет выставлен' },
@@ -43,6 +48,18 @@ export function OrderDetail({ orderId }: { orderId: string }) {
     },
     onError: (error) => {
       setMessage(error instanceof Error ? error.message : 'Не удалось выполнить действие.');
+    },
+  });
+
+  const resendMutation = useMutation({
+    mutationFn: () => resendOrderNotification(token ?? '', orderId),
+    onSuccess: async () => {
+      setMessage('Уведомление переотправлено.');
+      await queryClient.invalidateQueries({ queryKey: ['order', orderId] });
+      await queryClient.invalidateQueries({ queryKey: ['orders'] });
+    },
+    onError: (error) => {
+      setMessage(error instanceof Error ? error.message : 'Не удалось переотправить уведомление.');
     },
   });
 
@@ -90,6 +107,11 @@ export function OrderDetail({ orderId }: { orderId: string }) {
           <span>{order.status}</span>
           <span>{order.paymentStatus}</span>
           <span>{order.fulfillmentStatus}</span>
+          {order.notification.status === 'FAILED' ? (
+            <span className="error">email failed: {order.notification.event}</span>
+          ) : (
+            <span className="muted">email: {order.notification.status}</span>
+          )}
         </div>
         <div className="grid grid-two">
           <div className="stack">
@@ -133,9 +155,19 @@ export function OrderDetail({ orderId }: { orderId: string }) {
               </button>
             </form>
           ))}
+          <button
+            type="button"
+            disabled={resendMutation.isPending}
+            onClick={() => {
+              setMessage(null);
+              resendMutation.mutate();
+            }}
+          >
+            Переотправить уведомление
+          </button>
         </div>
         {message ? (
-          <p className={message === 'Действие выполнено.' ? 'success' : 'error'}>{message}</p>
+          <p className={message.includes('Не удалось') ? 'error' : 'success'}>{message}</p>
         ) : null}
       </section>
 

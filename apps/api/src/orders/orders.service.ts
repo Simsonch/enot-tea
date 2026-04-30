@@ -3,7 +3,9 @@ import {
   ConflictException,
   HttpStatus,
   Injectable,
+  Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import {
   FulfillmentStatus,
@@ -12,6 +14,11 @@ import {
   PaymentStatus,
   type Prisma,
 } from '@prisma/client';
+import { OrderNotificationsService } from '../notifications/order-notifications.service.js';
+import type {
+  NotificationAttemptResult,
+  OrderEmailEvent,
+} from '../notifications/notifications.types.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   type CreateOrderDto,
@@ -37,9 +44,22 @@ type OrderLifecycleTransition = {
 
 type ActorId = string | undefined;
 
+type NotificationAttemptSummary = {
+  event: string;
+  status: string;
+  errorMessage: string | null;
+  createdAt: Date;
+};
+
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(OrdersService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional()
+    private readonly orderNotifications?: OrderNotificationsService,
+  ) {}
 
   private readonly allowedTransitions = new Map<OrderStatus, Set<OrderStatus>>([
     [OrderStatus.NEW, new Set([OrderStatus.CONFIRMED, OrderStatus.CANCELLED])],
@@ -57,7 +77,7 @@ export class OrdersService {
   ]);
 
   async create(dto: CreateOrderDto) {
-    return this.prisma.$transaction(async (tx) => {
+    const order = await this.prisma.$transaction(async (tx) => {
       if (dto.customerId) {
         await this.ensureLinkedCustomerExists(tx, dto.customerId);
       }
@@ -202,10 +222,14 @@ export class OrdersService {
 
       return order;
     });
+
+    const notification = await this.sendOrderNotification('order-created', order);
+
+    return this.withNotificationSummary(order, notification);
   }
 
   async cancel(orderId: string, dto: ManualOrderLifecycleTransitionDto = {}, actorId?: ActorId) {
-    return this.transitionLifecycle(orderId, {
+    const order = await this.transitionLifecycle(orderId, {
       operation: 'cancel',
       expected: [OrderStatus.NEW, OrderStatus.CONFIRMED, OrderStatus.PACKED].flatMap(
         (status) =>
@@ -224,6 +248,10 @@ export class OrdersService {
       comment: dto.comment ?? 'Отмена заказа',
       releaseReserved: true,
     }, actorId);
+
+    const notification = await this.sendOrderNotification('cancelled', order);
+
+    return this.withNotificationSummary(order, notification);
   }
 
   async markInvoiceSent(
@@ -231,7 +259,7 @@ export class OrdersService {
     dto: ManualOrderLifecycleTransitionDto = {},
     actorId?: ActorId,
   ) {
-    return this.transitionLifecycle(orderId, {
+    const order = await this.transitionLifecycle(orderId, {
       operation: 'invoice-sent',
       expected: {
         status: OrderStatus.NEW,
@@ -245,6 +273,10 @@ export class OrdersService {
       },
       comment: dto.comment ?? 'Счет выставлен',
     }, actorId);
+
+    const notification = await this.sendOrderNotification('invoice-issued', order);
+
+    return this.withNotificationSummary(order, notification);
   }
 
   async confirmPayment(
@@ -252,7 +284,7 @@ export class OrdersService {
     dto: ManualOrderLifecycleTransitionDto = {},
     actorId?: ActorId,
   ) {
-    return this.transitionLifecycle(orderId, {
+    const order = await this.transitionLifecycle(orderId, {
       operation: 'payment-confirmed',
       expected: {
         status: OrderStatus.CONFIRMED,
@@ -266,6 +298,10 @@ export class OrdersService {
       },
       comment: dto.comment ?? 'Оплата подтверждена',
     }, actorId);
+
+    const notification = await this.sendOrderNotification('payment-confirmed', order);
+
+    return this.withNotificationSummary(order, notification);
   }
 
   async handOffToDelivery(
@@ -273,7 +309,7 @@ export class OrdersService {
     dto: ManualOrderLifecycleTransitionDto = {},
     actorId?: ActorId,
   ) {
-    return this.transitionLifecycle(orderId, {
+    const order = await this.transitionLifecycle(orderId, {
       operation: 'handoff-to-delivery',
       expected: {
         status: OrderStatus.PACKED,
@@ -288,6 +324,10 @@ export class OrdersService {
       comment: dto.comment ?? 'Передано в доставку',
       shipInventory: true,
     }, actorId);
+
+    const notification = await this.sendOrderNotification('in-delivery', order);
+
+    return this.withNotificationSummary(order, notification);
   }
 
   async confirmDelivered(
@@ -295,7 +335,7 @@ export class OrdersService {
     dto: ManualOrderLifecycleTransitionDto = {},
     actorId?: ActorId,
   ) {
-    return this.transitionLifecycle(orderId, {
+    const order = await this.transitionLifecycle(orderId, {
       operation: 'delivered',
       expected: {
         status: OrderStatus.SHIPPED,
@@ -309,6 +349,10 @@ export class OrdersService {
       },
       comment: dto.comment ?? 'Получение подтверждено',
     }, actorId);
+
+    const notification = await this.sendOrderNotification('completed', order);
+
+    return this.withNotificationSummary(order, notification);
   }
 
   async updateStatus(orderId: string, dto: UpdateOrderStatusDto, actorId?: ActorId) {
@@ -348,6 +392,16 @@ export class OrdersService {
           totalMinor: true,
           createdAt: true,
           updatedAt: true,
+          notifications: {
+            select: {
+              event: true,
+              status: true,
+              errorMessage: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
           _count: { select: { items: true } },
         },
       }),
@@ -369,6 +423,7 @@ export class OrdersService {
         itemsCount: order._count.items,
         createdAt: order.createdAt,
         updatedAt: order.updatedAt,
+        notification: this.getNotificationSummary(order.notifications?.[0]),
       })),
       pagination: {
         limit: query.limit,
@@ -407,6 +462,16 @@ export class OrdersService {
           },
           orderBy: { createdAt: 'asc' },
         },
+        notifications: {
+          select: {
+            event: true,
+            status: true,
+            errorMessage: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
       },
     });
 
@@ -414,7 +479,104 @@ export class OrdersService {
       throw new NotFoundException(`Заказ orderId=${orderId} не найден.`);
     }
 
-    return order;
+    return this.withNotificationSummary(order, order.notifications?.[0]);
+  }
+
+  async resendNotification(orderId: string) {
+    const order = await this.getById(orderId);
+    const event = this.getCurrentNotificationEvent(order);
+    const notification = await this.sendOrderNotification(event, order);
+
+    return this.withNotificationSummary(order, notification);
+  }
+
+  private async sendOrderNotification(
+    event: OrderEmailEvent,
+    order: {
+      id: string;
+      customerEmail: string;
+      customerFullName: string;
+      totalMinor: number;
+    },
+  ): Promise<NotificationAttemptResult | undefined> {
+    if (!this.orderNotifications) {
+      return undefined;
+    }
+
+    try {
+      return await this.orderNotifications.sendOrderEvent(event, {
+        id: order.id,
+        customerEmail: order.customerEmail,
+        customerFullName: order.customerFullName,
+        totalMinor: order.totalMinor,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Email notification failed orderId=${order.id} event=${event}: ${this.getErrorMessage(error)}`,
+      );
+      return {
+        event,
+        status: 'FAILED',
+        errorMessage: this.getErrorMessage(error),
+      };
+    }
+  }
+
+  private withNotificationSummary<T extends object>(
+    order: T,
+    attempt: NotificationAttemptSummary | NotificationAttemptResult | undefined,
+  ) {
+    const { notifications: _notifications, ...orderWithoutAttempts } = order as T & {
+      notifications?: unknown;
+    };
+
+    return {
+      ...orderWithoutAttempts,
+      notification: this.getNotificationSummary(attempt),
+    };
+  }
+
+  private getNotificationSummary(
+    attempt: NotificationAttemptSummary | NotificationAttemptResult | undefined,
+  ) {
+    if (!attempt) {
+      return {
+        status: 'NOT_SENT',
+        event: null,
+        errorMessage: null,
+        createdAt: null,
+      };
+    }
+
+    return {
+      status: attempt.status,
+      event: attempt.event,
+      errorMessage: attempt.errorMessage ?? null,
+      createdAt: attempt.createdAt ?? null,
+    };
+  }
+
+  private getCurrentNotificationEvent(order: OrderLifecycleState): OrderEmailEvent {
+    if (order.status === OrderStatus.CANCELLED) {
+      return 'cancelled';
+    }
+    if (
+      order.status === OrderStatus.DELIVERED ||
+      order.fulfillmentStatus === FulfillmentStatus.DELIVERED
+    ) {
+      return 'completed';
+    }
+    if (order.fulfillmentStatus === FulfillmentStatus.HANDED_TO_CARRIER) {
+      return 'in-delivery';
+    }
+    if (order.paymentStatus === PaymentStatus.PAID) {
+      return 'payment-confirmed';
+    }
+    if (order.paymentStatus === PaymentStatus.INVOICE_SENT) {
+      return 'invoice-issued';
+    }
+
+    return 'order-created';
   }
 
   private async ensureLinkedCustomerExists(
@@ -428,6 +590,10 @@ export class OrdersService {
     if (!customer) {
       throw new NotFoundException(`Покупатель customerId=${customerId} не найден.`);
     }
+  }
+
+  private getErrorMessage(error: unknown) {
+    return error instanceof Error ? error.message : 'Unknown email notification error';
   }
 
   private aggregateItems(items: CreateOrderDto['items']) {

@@ -74,6 +74,37 @@ export class OrderItemResponseDto {
   totalMinor!: number;
 }
 
+export class OrderNotificationSummaryDto {
+  @ApiProperty({ enum: ['NOT_SENT', 'SUCCESS', 'FAILED'], enumName: 'OrderNotificationStatus' })
+  status!: 'NOT_SENT' | 'SUCCESS' | 'FAILED';
+
+  @ApiProperty({
+    enum: [
+      'order-created',
+      'invoice-issued',
+      'payment-confirmed',
+      'in-delivery',
+      'completed',
+      'cancelled',
+    ],
+    nullable: true,
+  })
+  event!:
+    | 'order-created'
+    | 'invoice-issued'
+    | 'payment-confirmed'
+    | 'in-delivery'
+    | 'completed'
+    | 'cancelled'
+    | null;
+
+  @ApiProperty({ type: 'string', nullable: true })
+  errorMessage!: string | null;
+
+  @ApiProperty({ type: 'string', format: 'date-time', nullable: true })
+  createdAt!: string | null;
+}
+
 export class OrderListItemDto {
   @ApiProperty({ type: 'string' })
   id!: string;
@@ -107,6 +138,9 @@ export class OrderListItemDto {
 
   @ApiProperty({ type: 'number' })
   itemsCount!: number;
+
+  @ApiProperty({ type: () => OrderNotificationSummaryDto })
+  notification!: OrderNotificationSummaryDto;
 
   @ApiProperty({ type: 'string', format: 'date-time' })
   createdAt!: string;
@@ -221,4 +255,7 @@ export class OrderResponseDto {
 
   @ApiProperty({ type: () => [OrderStatusHistoryEntryDto] })
   statusHistory!: OrderStatusHistoryEntryDto[];
+
+  @ApiProperty({ type: () => OrderNotificationSummaryDto })
+  notification!: OrderNotificationSummaryDto;
 }

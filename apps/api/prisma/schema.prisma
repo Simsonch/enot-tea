@@ -135,12 +135,27 @@ model Order {
   items          OrderItem[]
   statusHistory  OrderStatusHistory[]
   stockMovements StockMovement[]
+  notifications  NotificationAttempt[]
 
   @@index([status, createdAt])
   @@index([paymentStatus, createdAt])
   @@index([fulfillmentStatus, createdAt])
   @@index([customerEmail, createdAt])
   @@index([customerId, createdAt])
+}
+
+model NotificationAttempt {
+  id           String   @id @default(cuid())
+  orderId      String
+  event        String
+  status       String
+  errorMessage String?
+  createdAt    DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+  @@index([orderId, status, createdAt])
 }
 
 model OrderItem {

@@ -794,6 +794,73 @@
         ]
       }
     },
+    "/orders/{id}/notifications/resend": {
+      "post": {
+        "operationId": "OrdersController_resendNotification",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "Идентификатор заказа",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Не передан или недействителен Bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiAuthErrorBodyDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Пользователь не является владельцем",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiAuthErrorBodyDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Заказ не найден",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiNotFoundErrorBodyDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Повторно отправить актуальное email-уведомление по заказу",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
     "/orders/{id}/status": {
       "patch": {
         "operationId": "OrdersController_updateStatus",
@@ -1085,6 +1152,53 @@
           "RETURNED"
         ]
       },
+      "OrderNotificationStatus": {
+        "type": "string",
+        "enum": [
+          "NOT_SENT",
+          "SUCCESS",
+          "FAILED"
+        ]
+      },
+      "OrderNotificationSummaryDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OrderNotificationStatus"
+              }
+            ]
+          },
+          "event": {
+            "type": "string",
+            "enum": [
+              "order-created",
+              "invoice-issued",
+              "payment-confirmed",
+              "in-delivery",
+              "completed",
+              "cancelled"
+            ],
+            "nullable": true
+          },
+          "errorMessage": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "required": [
+          "status",
+          "event",
+          "errorMessage",
+          "createdAt"
+        ]
+      },
       "OrderListItemDto": {
         "type": "object",
         "properties": {
@@ -1136,6 +1250,9 @@
           "itemsCount": {
             "type": "number"
           },
+          "notification": {
+            "$ref": "#/components/schemas/OrderNotificationSummaryDto"
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -1157,6 +1274,7 @@
           "fulfillmentStatus",
           "totalMinor",
           "itemsCount",
+          "notification",
           "createdAt",
           "updatedAt"
         ]
@@ -1457,6 +1575,9 @@
             "items": {
               "$ref": "#/components/schemas/OrderStatusHistoryEntryDto"
             }
+          },
+          "notification": {
+            "$ref": "#/components/schemas/OrderNotificationSummaryDto"
           }
         },
         "required": [
@@ -1473,7 +1594,8 @@
           "createdAt",
           "updatedAt",
           "items",
-          "statusHistory"
+          "statusHistory",
+          "notification"
         ]
       },
       "ApiNotFoundErrorBodyDto": {

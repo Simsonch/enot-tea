@@ -1115,3 +1115,185 @@ test('OrdersService.getById возвращает NotFound, если заказ �
     return error instanceof NotFoundException;
   });
 });
+
+test('OrdersService отправляет email-события для P0 lifecycle transitions', async () => {
+  const events: string[] = [];
+  const notifications = {
+    sendOrderEvent: async (event: string, order: { id: string; customerEmail: string }) => {
+      events.push(event);
+      assert.equal(order.customerEmail, guestSnapshot.customerEmail);
+    },
+  };
+
+  const createService = (prisma: unknown) =>
+    new OrdersService(prisma as any, notifications as any);
+
+  await createService(createOrderPrisma('order-created')).create({
+    ...guestSnapshot,
+    items: [{ productId: 'product-1', quantity: 1 }],
+  });
+  await createService(lifecyclePrisma({
+    id: 'order-invoice',
+    status: OrderStatus.NEW,
+    paymentStatus: PaymentStatus.PENDING,
+    fulfillmentStatus: FulfillmentStatus.RESERVED,
+  })).markInvoiceSent('order-invoice');
+  await createService(lifecyclePrisma({
+    id: 'order-paid',
+    status: OrderStatus.CONFIRMED,
+    paymentStatus: PaymentStatus.INVOICE_SENT,
+    fulfillmentStatus: FulfillmentStatus.RESERVED,
+  })).confirmPayment('order-paid');
+  await createService(lifecyclePrisma({
+    id: 'order-shipped',
+    status: OrderStatus.PACKED,
+    paymentStatus: PaymentStatus.PAID,
+    fulfillmentStatus: FulfillmentStatus.RESERVED,
+    withShippingInventory: true,
+  })).handOffToDelivery('order-shipped');
+  await createService(lifecyclePrisma({
+    id: 'order-delivered',
+    status: OrderStatus.SHIPPED,
+    paymentStatus: PaymentStatus.PAID,
+    fulfillmentStatus: FulfillmentStatus.HANDED_TO_CARRIER,
+  })).confirmDelivered('order-delivered');
+  await createService(lifecyclePrisma({
+    id: 'order-cancelled',
+    status: OrderStatus.NEW,
+    paymentStatus: PaymentStatus.PENDING,
+    fulfillmentStatus: FulfillmentStatus.RESERVED,
+    withCancelInventory: true,
+  })).cancel('order-cancelled');
+
+  assert.deepEqual(events, [
+    'order-created',
+    'invoice-issued',
+    'payment-confirmed',
+    'in-delivery',
+    'completed',
+    'cancelled',
+  ]);
+});
+
+test('OrdersService не откатывает transition при сбое email provider', async () => {
+  let updateCalls = 0;
+  const notifications = {
+    sendOrderEvent: async () => {
+      throw new Error('provider unavailable');
+    },
+  };
+  const prisma = lifecyclePrisma({
+    id: 'order-provider-failure',
+    status: OrderStatus.NEW,
+    paymentStatus: PaymentStatus.PENDING,
+    fulfillmentStatus: FulfillmentStatus.RESERVED,
+    onUpdate: () => {
+      updateCalls += 1;
+    },
+  });
+
+  const service = new OrdersService(prisma as any, notifications as any);
+  const result = await service.markInvoiceSent('order-provider-failure');
+
+  assert.equal(updateCalls, 1);
+  assert.equal(result.status, OrderStatus.CONFIRMED);
+  assert.equal(result.paymentStatus, PaymentStatus.INVOICE_SENT);
+});
+
+function createOrderPrisma(orderId: string) {
+  const tx = {
+    user: {
+      findUnique: async () => {
+        throw new Error('guest order не должен читать User');
+      },
+    },
+    product: {
+      findMany: async () => [{ id: 'product-1', priceMinor: 100, isActive: true }],
+    },
+    inventoryItem: {
+      findMany: async () => [{ id: 'inventory-1', productId: 'product-1' }],
+      findUnique: async () => ({ onHand: 5, reserved: 0 }),
+    },
+    order: {
+      create: async () => ({
+        ...emailOrder(orderId, OrderStatus.NEW, PaymentStatus.PENDING, FulfillmentStatus.RESERVED),
+        items: [
+          { id: 'item-1', productId: 'product-1', quantity: 1, priceMinor: 100, totalMinor: 100 },
+        ],
+        statusHistory: [],
+      }),
+    },
+    stockMovement: {
+      create: async (args: StockMovementCreate) => args,
+    },
+    $executeRaw: async () => 1,
+  };
+
+  return {
+    $transaction: async (fn: (innerTx: typeof tx) => Promise<unknown>) => fn(tx),
+  };
+}
+
+function lifecyclePrisma(options: {
+  id: string;
+  status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  fulfillmentStatus: FulfillmentStatus;
+  withShippingInventory?: boolean;
+  withCancelInventory?: boolean;
+  onUpdate?: () => void;
+}) {
+  const tx = {
+    order: {
+      findUnique: async () => ({
+        id: options.id,
+        status: options.status,
+        paymentStatus: options.paymentStatus,
+        fulfillmentStatus: options.fulfillmentStatus,
+        items: [{ id: 'item-1', productId: 'product-1', quantity: 1 }],
+      }),
+      update: async (args: any) => {
+        options.onUpdate?.();
+        return emailOrder(
+          options.id,
+          args.data.status,
+          args.data.paymentStatus,
+          args.data.fulfillmentStatus,
+        );
+      },
+    },
+    inventoryItem: {
+      findUnique: async () => ({ id: 'inventory-1', productId: 'product-1', onHand: 5, reserved: 1 }),
+      updateMany: async () => ({ count: 1 }),
+    },
+    stockMovement: {
+      create: async (args: StockMovementCreate) => args,
+    },
+  };
+
+  if (!options.withShippingInventory && !options.withCancelInventory) {
+    delete (tx as any).inventoryItem;
+    delete (tx as any).stockMovement;
+  }
+
+  return {
+    $transaction: async (fn: (innerTx: typeof tx) => Promise<unknown>) => fn(tx),
+  };
+}
+
+function emailOrder(
+  id: string,
+  status: OrderStatus,
+  paymentStatus: PaymentStatus,
+  fulfillmentStatus: FulfillmentStatus,
+) {
+  return {
+    id,
+    customerId: null,
+    ...guestSnapshot,
+    status,
+    paymentStatus,
+    fulfillmentStatus,
+    totalMinor: 100,
+  };
+}

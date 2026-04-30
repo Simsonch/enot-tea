@@ -37,6 +37,7 @@
 - [ ] Обновлены релевантные docs (`project-overview`, runbooks, контракты API) при изменении поведения.
 - [ ] Проверено отсутствие breaking changes в публичных API.
 - [ ] Для изменений поведения обновлены тесты.
+- [ ] Для email-уведомлений выбран режим `EMAIL_PROVIDER`: `log` для controlled skip/sandbox или `resend` с секретами только в окружении.
 - [ ] Подготовлен rollback plan (версия/коммит, порядок отката, owner).
 - [ ] Зафиксировано окно наблюдения после релиза и ответственные.
 - [ ] Все команды из Release Gates пройдены успешно.
@@ -57,7 +58,18 @@
    - `GET /health/db` возвращает `{"status":"ok","db":"up"}`;
    - `GET /products` возвращает `200`;
    - критичный `orders` сценарий не деградировал.
+   - email smoke для Sprint 8:
+     - в sandbox создать тестовый заказ и пройти P0 lifecycle: создан, счет выставлен, оплата подтверждена, передан в доставку, выполнен, отменен на отдельном тестовом заказе;
+     - проверить доставку письма на sandbox-ящик для каждого P0-шаблона или зафиксировать controlled skip, если окружение использует `EMAIL_PROVIDER=log`;
+     - проверить `NotificationAttempt` для тестовых заказов: успешные попытки имеют `status='SUCCESS'`, сбои provider фиксируются как `status='FAILED'` без body письма;
+     - в логах проверить только `orderId` и event (`order-created`, `invoice-issued`, `payment-confirmed`, `in-delivery`, `completed`, `cancelled`), без body письма и персональных данных.
 4. Зафиксировать результат smoke в release notes/канале релиза.
+
+## Email manual recovery
+- Если provider вернул ошибку, заказ и склад не откатываются: статус заказа считается источником правды.
+- Найти запись по `orderId` и event в `NotificationAttempt` или логах `OrderNotificationsService`/`MailerService`; не копировать body письма и email клиента в release notes или incident notes.
+- Для ручного resend в MVP использовать кнопку "Переотправить уведомление" в admin order detail. Если admin недоступна, отправить письмо вручную из sandbox/provider console по актуальному шаблону и `orderId`.
+- Если сбой массовый, переключить окружение на `EMAIL_PROVIDER=log`, продолжить критичный order flow и открыть follow-up на provider/retry. Инварианты склада проверять по `docs/runbooks/rollback-and-recovery.md`.
 
 ## Точки решения об откате
 ### Условия немедленного отката

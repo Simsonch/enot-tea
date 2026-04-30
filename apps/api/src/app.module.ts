@@ -9,10 +9,19 @@ import { ProductsService } from './products/products.service.js';
 import { OrdersController } from './orders/orders.controller.js';
 import { OrdersService } from './orders/orders.service.js';
 import { AuthModule } from './auth/auth.module.js';
+import { MailerService } from './notifications/mailer.service.js';
+import { OrderNotificationsService } from './notifications/order-notifications.service.js';
 
 @Module({
   imports: [PrismaModule, AuthModule],
   controllers: [AppController, HealthController, ProductsController, OrdersController],
-  providers: [AppService, HealthService, ProductsService, OrdersService],
+  providers: [
+    AppService,
+    HealthService,
+    ProductsService,
+    OrdersService,
+    MailerService,
+    OrderNotificationsService,
+  ],
 })
 export class AppModule {}

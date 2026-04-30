@@ -13,6 +13,8 @@ import request from 'supertest';
 import { FulfillmentStatus, OrderStatus, PaymentStatus } from '@prisma/client';
 import { OrdersController } from './orders.controller.js';
 import { OrdersService } from './orders.service.js';
+import { OrderNotificationsService } from '../notifications/order-notifications.service.js';
+import type { EmailMessage } from '../notifications/notifications.types.js';
 import {
   CreateOrderDto,
   GetOrdersQueryDto,
@@ -72,6 +74,7 @@ async function createApp(overrides?: {
   confirmPayment?: (id: string, dto?: ManualOrderLifecycleTransitionDto, actorId?: string) => Promise<unknown>;
   handOffToDelivery?: (id: string, dto?: ManualOrderLifecycleTransitionDto, actorId?: string) => Promise<unknown>;
   confirmDelivered?: (id: string, dto?: ManualOrderLifecycleTransitionDto, actorId?: string) => Promise<unknown>;
+  resendNotification?: (id: string) => Promise<unknown>;
 }) {
   let createCalls = 0;
   let updateStatusCalls = 0;
@@ -171,6 +174,22 @@ async function createApp(overrides?: {
           statusHistory: [],
         };
       }),
+    resendNotification:
+      overrides?.resendNotification ??
+      (async (id: string) => ({
+        id,
+        status: OrderStatus.CONFIRMED,
+        paymentStatus: PaymentStatus.INVOICE_SENT,
+        fulfillmentStatus: FulfillmentStatus.RESERVED,
+        notification: {
+          status: 'SUCCESS',
+          event: 'invoice-issued',
+          errorMessage: null,
+          createdAt: new Date('2026-04-29T00:00:00.000Z').toISOString(),
+        },
+        items: [],
+        statusHistory: [],
+      })),
   };
   const guardMock = {
     canActivate:
@@ -215,6 +234,100 @@ async function createApp(overrides?: {
   };
 }
 
+async function createOrderFlowAppWithMockProvider() {
+  const sentMessages: EmailMessage[] = [];
+  const attempts: Array<Record<string, unknown>> = [];
+  const productId = 'product-1';
+  const tx = {
+    user: {
+      findUnique: async () => {
+        throw new Error('guest order не должен читать User');
+      },
+    },
+    product: {
+      findMany: async () => [{ id: productId, priceMinor: 100, isActive: true }],
+    },
+    inventoryItem: {
+      findMany: async () => [{ id: 'inventory-1', productId }],
+      findUnique: async () => ({ onHand: 5, reserved: 0 }),
+    },
+    order: {
+      create: async () => ({
+        id: 'order-email-smoke',
+        customerId: null,
+        customerFullName: guestOrderPayload.customerFullName,
+        customerEmail: guestOrderPayload.customerEmail,
+        customerPhone: guestOrderPayload.customerPhone,
+        shippingAddress: guestOrderPayload.shippingAddress,
+        status: OrderStatus.NEW,
+        paymentStatus: PaymentStatus.PENDING,
+        fulfillmentStatus: FulfillmentStatus.RESERVED,
+        totalMinor: 100,
+        items: [
+          { id: 'item-1', productId, quantity: 1, priceMinor: 100, totalMinor: 100 },
+        ],
+        statusHistory: [],
+      }),
+    },
+    stockMovement: {
+      create: async (args: unknown) => args,
+    },
+    $executeRaw: async () => 1,
+  };
+  const prisma = {
+    $transaction: async (fn: (innerTx: typeof tx) => Promise<unknown>) => fn(tx),
+    notificationAttempt: {
+      create: async (args: { data: Record<string, unknown> }) => {
+        attempts.push(args.data);
+        return {
+          event: args.data.event,
+          status: args.data.status,
+          errorMessage: args.data.errorMessage ?? null,
+          createdAt: new Date('2026-04-29T00:00:00.000Z'),
+        };
+      },
+    },
+  };
+
+  const ordersService = new OrdersService(
+    prisma as any,
+    new OrderNotificationsService(
+      {
+        send: async (message: EmailMessage) => {
+          sentMessages.push(message);
+        },
+      } as any,
+      prisma as any,
+    ),
+  );
+
+  const moduleBuilder = Test.createTestingModule({
+    controllers: [OrdersController],
+    providers: [
+      { provide: OrdersService, useValue: ordersService },
+    ],
+  }).overrideGuard(OwnerAuthGuard).useValue({ canActivate: () => true });
+  const moduleRef = await moduleBuilder.compile();
+  const app = moduleRef.createNestApplication();
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      transformOptions: { enableImplicitConversion: true },
+      exceptionFactory: (errors) =>
+        new BadRequestException({
+          statusCode: 400,
+          code: 'VALIDATION_ERROR',
+          message: 'Входные данные не прошли проверку.',
+          errors: formatValidationFieldErrors(errors),
+        }),
+    }),
+  );
+  await app.init();
+
+  return { app, sentMessages, attempts };
+}
+
 const guestOrderPayload = {
   customerFullName: 'Иван Иванов',
   customerEmail: 'ivan@example.com',
@@ -252,6 +365,29 @@ test('POST /orders: guest payload without customerId returns created order snaps
       },
     ]);
     assert.equal(getCreateCalls(), 1);
+  } finally {
+    await app.close();
+  }
+});
+
+test('POST /orders: mock email provider records NotificationAttempt end-to-end', async () => {
+  const { app, sentMessages, attempts } = await createOrderFlowAppWithMockProvider();
+
+  try {
+    const response = await request(app.getHttpServer())
+      .post('/orders')
+      .send(guestOrderPayload)
+      .expect(201);
+
+    assert.equal(response.body.id, 'order-email-smoke');
+    assert.equal(response.body.notification.status, 'SUCCESS');
+    assert.equal(response.body.notification.event, 'order-created');
+    assert.equal(sentMessages[0]?.tags.orderId, 'order-email-smoke');
+    assert.deepEqual(attempts[0], {
+      orderId: 'order-email-smoke',
+      event: 'order-created',
+      status: 'SUCCESS',
+    });
   } finally {
     await app.close();
   }
@@ -623,6 +759,23 @@ test('PATCH /orders/:id/delivered: returns DELIVERED statuses', async () => {
 
     assert.equal(response.body.status, 'DELIVERED');
     assert.equal(response.body.fulfillmentStatus, 'DELIVERED');
+  } finally {
+    await app.close();
+  }
+});
+
+test('POST /orders/:id/notifications/resend: owner can manually resend notification', async () => {
+  const { app } = await createApp();
+
+  try {
+    const response = await request(app.getHttpServer())
+      .post('/orders/order-3/notifications/resend')
+      .send()
+      .expect(200);
+
+    assert.equal(response.body.id, 'order-3');
+    assert.equal(response.body.notification.status, 'SUCCESS');
+    assert.equal(response.body.notification.event, 'invoice-issued');
   } finally {
     await app.close();
   }

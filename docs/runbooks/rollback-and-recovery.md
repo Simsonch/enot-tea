@@ -69,6 +69,53 @@
   - ключевые endpoint-ы доступны;
   - ошибки API возвращают ожидаемые контрактные коды (`VALIDATION_ERROR`, `INSUFFICIENT_STOCK`, `INVALID_ORDER_STATUS_TRANSITION`, `INVENTORY_INVARIANT_VIOLATION`).
 
+### SQL-процедура проверки склада
+Выполнять read-only после restore/rollback и перед возвратом записи. Любая строка в результате требует ручной сверки Domain Owner.
+
+```sql
+-- 1. Отрицательные или невозможные остатки.
+SELECT id, "productId", "onHand", reserved
+FROM "InventoryItem"
+WHERE "onHand" < 0 OR reserved < 0 OR reserved > "onHand";
+
+-- 2. Reserved должен соответствовать незавершенным заказам, которые ещё не переданы в доставку.
+WITH expected_reserved AS (
+  SELECT
+    oi."productId",
+    COALESCE(SUM(oi.quantity), 0) AS expected
+  FROM "OrderItem" oi
+  JOIN "Order" o ON o.id = oi."orderId"
+  WHERE o.status IN ('NEW', 'CONFIRMED', 'PACKED')
+    AND o."fulfillmentStatus" = 'RESERVED'
+  GROUP BY oi."productId"
+)
+SELECT i.id, i."productId", i.reserved, COALESCE(er.expected, 0) AS expected
+FROM "InventoryItem" i
+LEFT JOIN expected_reserved er ON er."productId" = i."productId"
+WHERE i.reserved <> COALESCE(er.expected, 0);
+
+-- 3. Для SHIPPED/DELIVERED заказов должны быть StockMovement списания ORDER_SHIP.
+SELECT o.id AS "orderId", o.status, o."fulfillmentStatus"
+FROM "Order" o
+WHERE o.status IN ('SHIPPED', 'DELIVERED')
+  AND NOT EXISTS (
+    SELECT 1
+    FROM "StockMovement" sm
+    WHERE sm."orderId" = o.id
+      AND sm.reason = 'ORDER_SHIP'
+      AND sm."deltaOnHand" < 0
+      AND sm."deltaReserved" < 0
+  );
+
+-- 4. Сиротские складские движения по заказам не должны появляться после восстановления.
+SELECT sm.id, sm."orderId", sm."orderItemId", sm.reason
+FROM "StockMovement" sm
+LEFT JOIN "Order" o ON o.id = sm."orderId"
+LEFT JOIN "OrderItem" oi ON oi.id = sm."orderItemId"
+WHERE (sm."orderId" IS NOT NULL AND o.id IS NULL)
+   OR (sm."orderItemId" IS NOT NULL AND oi.id IS NULL);
+```
+
 ## Проверка после восстановления
 - Проверить метрики на окне наблюдения:
   - доступность API;

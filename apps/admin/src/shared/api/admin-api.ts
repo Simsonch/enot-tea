@@ -12,6 +12,7 @@ import {
   ordersControllerHandOffToDelivery,
   ordersControllerList,
   ordersControllerMarkInvoiceSent,
+  ordersControllerResendNotification,
 } from '@enot-tea/api-client';
 
 type ApiResponse = {
@@ -100,5 +101,10 @@ export async function runOrderAction(
     'payment-confirmed': () => ordersControllerConfirmPayment(orderId, payload, options),
   }[action]();
 
+  return ensureSuccess<OrderResponseDto>(response, 200);
+}
+
+export async function resendOrderNotification(token: string, orderId: string) {
+  const response = await ordersControllerResendNotification(orderId, authOptions(token));
   return ensureSuccess<OrderResponseDto>(response, 200);
 }

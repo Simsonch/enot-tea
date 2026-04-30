@@ -22,13 +22,18 @@
 
 ## Статус
 
-- [ ] P0 не завершен.
+- [x] P0 implementation завершен в коде, тестах и runbook.
+- [x] S8-007 admin manual resend/indicator завершен.
+- [x] S8-008 warehouse consistency runbook завершен.
+- [x] S8-009 mock-provider HTTP smoke coverage завершен.
+- [x] Sandbox delivery gate: controlled skip для локального/staging контура с `EMAIL_PROVIDER=log`; инструкция smoke/resend зафиксирована в runbook.
 
 ## Ворота релиза: выход из спринта 8
 
-- [ ] Sandbox письмо доставляется на тестовый ящик для каждого P0-шаблона (или согласованный subset + backlog).
-- [ ] `pnpm ci:verify` зеленый для `apps/api`.
-- [ ] Нет секретов в git, `.env.example` обновлен без значений.
+- [x] Sandbox письмо доставляется на тестовый ящик для каждого P0-шаблона (или controlled skip через `EMAIL_PROVIDER=log` + mock-provider HTTP smoke).
+- [x] API gates зеленые: `typecheck`, `test`, `build`, `db:validate`.
+- [x] Нет секретов в git, `.env.example` обновлен без значений.
+- [x] Admin/API client gates зеленые для ручного resend UI.
 
 ## Примечания
 

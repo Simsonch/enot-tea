@@ -38,6 +38,6 @@
 
 ## Чеклист приёмки
 
-- [ ] `docs/sprints/sprint-8-backlog.md` - P0 закрыты.
-- [ ] `docs/runbooks/...` - дополнения внесены.
-- [ ] Секреты не в репо.
+- [x] `docs/sprints/sprint-8-backlog.md` - P0 закрыты.
+- [x] `docs/runbooks/...` - дополнения внесены.
+- [x] Секреты не в репо.

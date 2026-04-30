@@ -70,6 +70,42 @@ export const FulfillmentStatus = {
   RETURNED: 'RETURNED',
 } as const;
 
+export type OrderNotificationStatus = typeof OrderNotificationStatus[keyof typeof OrderNotificationStatus];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const OrderNotificationStatus = {
+  NOT_SENT: 'NOT_SENT',
+  SUCCESS: 'SUCCESS',
+  FAILED: 'FAILED',
+} as const;
+
+/**
+ * @nullable
+ */
+export type OrderNotificationSummaryDtoEvent = typeof OrderNotificationSummaryDtoEvent[keyof typeof OrderNotificationSummaryDtoEvent] | null;
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const OrderNotificationSummaryDtoEvent = {
+  'order-created': 'order-created',
+  'invoice-issued': 'invoice-issued',
+  'payment-confirmed': 'payment-confirmed',
+  'in-delivery': 'in-delivery',
+  completed: 'completed',
+  cancelled: 'cancelled',
+} as const;
+
+export interface OrderNotificationSummaryDto {
+  status: OrderNotificationStatus;
+  /** @nullable */
+  event: OrderNotificationSummaryDtoEvent;
+  /** @nullable */
+  errorMessage: string | null;
+  /** @nullable */
+  createdAt: string | null;
+}
+
 export interface OrderListItemDto {
   id: string;
   /** @nullable */
@@ -84,6 +120,7 @@ export interface OrderListItemDto {
   fulfillmentStatus: FulfillmentStatus;
   totalMinor: number;
   itemsCount: number;
+  notification: OrderNotificationSummaryDto;
   createdAt: string;
   updatedAt: string;
 }
@@ -208,6 +245,7 @@ export interface OrderResponseDto {
   updatedAt: string;
   items: OrderItemResponseDto[];
   statusHistory: OrderStatusHistoryEntryDto[];
+  notification: OrderNotificationSummaryDto;
 }
 
 export interface ApiNotFoundErrorBodyDto {
@@ -957,6 +995,65 @@ export const ordersControllerConfirmDelivered = async (id: string,
 
   const data: ordersControllerConfirmDeliveredResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as ordersControllerConfirmDeliveredResponse
+}
+
+
+
+/**
+ * @summary Повторно отправить актуальное email-уведомление по заказу
+ */
+export type ordersControllerResendNotificationResponse200 = {
+  data: OrderResponseDto
+  status: 200
+}
+
+export type ordersControllerResendNotificationResponse401 = {
+  data: ApiAuthErrorBodyDto
+  status: 401
+}
+
+export type ordersControllerResendNotificationResponse403 = {
+  data: ApiAuthErrorBodyDto
+  status: 403
+}
+
+export type ordersControllerResendNotificationResponse404 = {
+  data: ApiNotFoundErrorBodyDto
+  status: 404
+}
+
+export type ordersControllerResendNotificationResponseSuccess = (ordersControllerResendNotificationResponse200) & {
+  headers: Headers;
+};
+export type ordersControllerResendNotificationResponseError = (ordersControllerResendNotificationResponse401 | ordersControllerResendNotificationResponse403 | ordersControllerResendNotificationResponse404) & {
+  headers: Headers;
+};
+
+export type ordersControllerResendNotificationResponse = (ordersControllerResendNotificationResponseSuccess | ordersControllerResendNotificationResponseError)
+
+export const getOrdersControllerResendNotificationUrl = (id: string,) => {
+
+
+
+
+  return `/orders/${id}/notifications/resend`
+}
+
+export const ordersControllerResendNotification = async (id: string, options?: RequestInit): Promise<ordersControllerResendNotificationResponse> => {
+
+  const res = await fetch(getOrdersControllerResendNotificationUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: ordersControllerResendNotificationResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as ordersControllerResendNotificationResponse
 }
 
 

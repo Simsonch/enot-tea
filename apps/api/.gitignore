@@ -7,3 +7,6 @@ prisma.config.js.map
 /src/generated/prisma
 
 /src/generated/prisma
+storage/
+!src/storage/
+!src/storage/*

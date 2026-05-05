@@ -7,7 +7,9 @@ import {
   ApiUnauthorizedResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { ApiAuthErrorBodyDto, ApiValidationErrorBodyDto } from '../openapi/error-models.js';
+import { appConfig } from '../common/app.config.js';
 import { AuthService } from './auth.service.js';
 import { LoginDto, LoginResponseDto } from './auth.dto.js';
 
@@ -17,6 +19,12 @@ export class AuthController {
   constructor(@Inject(AuthService) private readonly authService: AuthService) {}
 
   @Post('login')
+  @Throttle({
+    default: {
+      limit: appConfig.throttling.authLogin.limit,
+      ttl: appConfig.throttling.authLogin.ttlMs,
+    },
+  })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Войти владельцем и получить JWT Bearer token' })
   @ApiBody({ type: LoginDto })

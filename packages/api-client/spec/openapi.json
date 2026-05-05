@@ -71,6 +71,117 @@
         "tags": [
           "products"
         ]
+      },
+      "post": {
+        "operationId": "ProductsController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "sku",
+                  "name",
+                  "priceMinor",
+                  "image"
+                ],
+                "properties": {
+                  "sku": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "priceMinor": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "productType": {
+                    "type": "string"
+                  },
+                  "category": {
+                    "type": "string"
+                  },
+                  "discountPercent": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "promotionLabel": {
+                    "type": "string"
+                  },
+                  "discountedPriceMinor": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "isActive": {
+                    "type": "boolean"
+                  },
+                  "image": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректное тело запроса или файл изображения",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiValidationErrorBodyDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Не передан или недействителен Bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiAuthErrorBodyDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "SKU уже существует",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBusinessConflictBodyDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Создать товар каталога",
+        "tags": [
+          "products"
+        ]
       }
     },
     "/orders": {
@@ -1073,6 +1184,32 @@
             "example": 1000,
             "description": "Цена в минорных единицах"
           },
+          "productType": {
+            "type": "string",
+            "nullable": true
+          },
+          "category": {
+            "type": "string",
+            "nullable": true
+          },
+          "discountPercent": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 100
+          },
+          "promotionLabel": {
+            "type": "string",
+            "nullable": true
+          },
+          "discountedPriceMinor": {
+            "type": "number",
+            "nullable": true,
+            "description": "Цена со скидкой в минорных единицах"
+          },
+          "imageUrl": {
+            "type": "string"
+          },
           "isActive": {
             "type": "boolean"
           }
@@ -1082,6 +1219,7 @@
           "sku",
           "name",
           "priceMinor",
+          "imageUrl",
           "isActive"
         ]
       },
@@ -1120,6 +1258,160 @@
         "required": [
           "items",
           "pagination"
+        ]
+      },
+      "ProductResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "priceMinor": {
+            "type": "number",
+            "example": 1000,
+            "description": "Цена в минорных единицах"
+          },
+          "productType": {
+            "type": "string",
+            "nullable": true
+          },
+          "category": {
+            "type": "string",
+            "nullable": true
+          },
+          "discountPercent": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 100
+          },
+          "promotionLabel": {
+            "type": "string",
+            "nullable": true
+          },
+          "discountedPriceMinor": {
+            "type": "number",
+            "nullable": true,
+            "description": "Цена со скидкой в минорных единицах"
+          },
+          "imageUrl": {
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "sku",
+          "name",
+          "priceMinor",
+          "imageUrl",
+          "isActive"
+        ]
+      },
+      "ValidationErrorField": {
+        "type": "object",
+        "properties": {
+          "field": {
+            "type": "string",
+            "example": "toStatus"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "field",
+          "messages"
+        ]
+      },
+      "ApiValidationErrorBodyDto": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 400
+          },
+          "code": {
+            "type": "string",
+            "example": "VALIDATION_ERROR"
+          },
+          "message": {
+            "type": "string"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidationErrorField"
+            }
+          }
+        },
+        "required": [
+          "statusCode",
+          "code",
+          "message"
+        ]
+      },
+      "ApiAuthErrorBodyDto": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 401
+          },
+          "code": {
+            "type": "string",
+            "example": "AUTH_REQUIRED",
+            "description": "Один из: AUTH_REQUIRED, AUTH_INVALID_TOKEN, AUTH_INVALID_CREDENTIALS, OWNER_ONLY"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "statusCode",
+          "code",
+          "message"
+        ]
+      },
+      "ApiBusinessConflictBodyDto": {
+        "type": "object",
+        "properties": {
+          "statusCode": {
+            "type": "number",
+            "example": 409
+          },
+          "code": {
+            "type": "string",
+            "example": "INVALID_ORDER_STATUS_TRANSITION",
+            "description": "Один из: INSUFFICIENT_STOCK, PRODUCT_INACTIVE, INVALID_ORDER_STATUS_TRANSITION, INVENTORY_INVARIANT_VIOLATION, PRODUCT_DUPLICATE"
+          },
+          "message": {
+            "type": "string"
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "statusCode",
+          "code",
+          "message"
         ]
       },
       "OrderStatus": {
@@ -1314,74 +1606,6 @@
         "required": [
           "items",
           "pagination"
-        ]
-      },
-      "ValidationErrorField": {
-        "type": "object",
-        "properties": {
-          "field": {
-            "type": "string",
-            "example": "toStatus"
-          },
-          "messages": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "field",
-          "messages"
-        ]
-      },
-      "ApiValidationErrorBodyDto": {
-        "type": "object",
-        "properties": {
-          "statusCode": {
-            "type": "number",
-            "example": 400
-          },
-          "code": {
-            "type": "string",
-            "example": "VALIDATION_ERROR"
-          },
-          "message": {
-            "type": "string"
-          },
-          "errors": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ValidationErrorField"
-            }
-          }
-        },
-        "required": [
-          "statusCode",
-          "code",
-          "message"
-        ]
-      },
-      "ApiAuthErrorBodyDto": {
-        "type": "object",
-        "properties": {
-          "statusCode": {
-            "type": "number",
-            "example": 401
-          },
-          "code": {
-            "type": "string",
-            "example": "AUTH_REQUIRED",
-            "description": "Один из: AUTH_REQUIRED, AUTH_INVALID_TOKEN, AUTH_INVALID_CREDENTIALS, OWNER_ONLY"
-          },
-          "message": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "statusCode",
-          "code",
-          "message"
         ]
       },
       "OrderItemResponseDto": {
@@ -1679,32 +1903,6 @@
           "customerEmail",
           "shippingAddress",
           "items"
-        ]
-      },
-      "ApiBusinessConflictBodyDto": {
-        "type": "object",
-        "properties": {
-          "statusCode": {
-            "type": "number",
-            "example": 409
-          },
-          "code": {
-            "type": "string",
-            "example": "INVALID_ORDER_STATUS_TRANSITION",
-            "description": "Один из: INSUFFICIENT_STOCK, PRODUCT_INACTIVE, INVALID_ORDER_STATUS_TRANSITION, INVENTORY_INVARIANT_VIOLATION"
-          },
-          "message": {
-            "type": "string"
-          },
-          "details": {
-            "type": "object",
-            "additionalProperties": true
-          }
-        },
-        "required": [
-          "statusCode",
-          "code",
-          "message"
         ]
       },
       "ManualOrderLifecycleTransitionDto": {

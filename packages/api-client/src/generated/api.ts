@@ -20,6 +20,24 @@ export interface ProductListItemDto {
   description?: string | null;
   /** Цена в минорных единицах */
   priceMinor: number;
+  /** @nullable */
+  productType?: string | null;
+  /** @nullable */
+  category?: string | null;
+  /**
+   * @minimum 0
+   * @maximum 100
+   * @nullable
+   */
+  discountPercent?: number | null;
+  /** @nullable */
+  promotionLabel?: string | null;
+  /**
+   * Цена со скидкой в минорных единицах
+   * @nullable
+   */
+  discountedPriceMinor?: number | null;
+  imageUrl: string;
   isActive: boolean;
 }
 
@@ -32,6 +50,64 @@ export interface ProductPaginationDto {
 export interface ProductsListResponseDto {
   items: ProductListItemDto[];
   pagination: ProductPaginationDto;
+}
+
+export interface ProductResponseDto {
+  id: string;
+  sku: string;
+  name: string;
+  /** @nullable */
+  description?: string | null;
+  /** Цена в минорных единицах */
+  priceMinor: number;
+  /** @nullable */
+  productType?: string | null;
+  /** @nullable */
+  category?: string | null;
+  /**
+   * @minimum 0
+   * @maximum 100
+   * @nullable
+   */
+  discountPercent?: number | null;
+  /** @nullable */
+  promotionLabel?: string | null;
+  /**
+   * Цена со скидкой в минорных единицах
+   * @nullable
+   */
+  discountedPriceMinor?: number | null;
+  imageUrl: string;
+  isActive: boolean;
+}
+
+export interface ValidationErrorField {
+  field: string;
+  messages: string[];
+}
+
+export interface ApiValidationErrorBodyDto {
+  statusCode: number;
+  code: string;
+  message: string;
+  errors?: ValidationErrorField[];
+}
+
+export interface ApiAuthErrorBodyDto {
+  statusCode: number;
+  /** Один из: AUTH_REQUIRED, AUTH_INVALID_TOKEN, AUTH_INVALID_CREDENTIALS, OWNER_ONLY */
+  code: string;
+  message: string;
+}
+
+export type ApiBusinessConflictBodyDtoDetails = { [key: string]: unknown };
+
+export interface ApiBusinessConflictBodyDto {
+  statusCode: number;
+  /** Один из: INSUFFICIENT_STOCK, PRODUCT_INACTIVE, INVALID_ORDER_STATUS_TRANSITION, INVENTORY_INVARIANT_VIOLATION, PRODUCT_DUPLICATE */
+  code: string;
+  message: string;
+  details?: ApiBusinessConflictBodyDtoDetails;
 }
 
 export type OrderStatus = typeof OrderStatus[keyof typeof OrderStatus];
@@ -134,25 +210,6 @@ export interface OrderPaginationDto {
 export interface OrdersListResponseDto {
   items: OrderListItemDto[];
   pagination: OrderPaginationDto;
-}
-
-export interface ValidationErrorField {
-  field: string;
-  messages: string[];
-}
-
-export interface ApiValidationErrorBodyDto {
-  statusCode: number;
-  code: string;
-  message: string;
-  errors?: ValidationErrorField[];
-}
-
-export interface ApiAuthErrorBodyDto {
-  statusCode: number;
-  /** Один из: AUTH_REQUIRED, AUTH_INVALID_TOKEN, AUTH_INVALID_CREDENTIALS, OWNER_ONLY */
-  code: string;
-  message: string;
 }
 
 export interface OrderItemResponseDto {
@@ -276,16 +333,6 @@ export interface CreateOrderDto {
   items: CreateOrderItemDto[];
 }
 
-export type ApiBusinessConflictBodyDtoDetails = { [key: string]: unknown };
-
-export interface ApiBusinessConflictBodyDto {
-  statusCode: number;
-  /** Один из: INSUFFICIENT_STOCK, PRODUCT_INACTIVE, INVALID_ORDER_STATUS_TRANSITION, INVENTORY_INVARIANT_VIOLATION */
-  code: string;
-  message: string;
-  details?: ApiBusinessConflictBodyDtoDetails;
-}
-
 export interface ManualOrderLifecycleTransitionDto {
   /** @maxLength 500 */
   comment?: string;
@@ -338,6 +385,26 @@ offset?: number;
  * @maximum 100
  */
 limit?: number;
+};
+
+export type ProductsControllerCreateBody = {
+  sku: string;
+  name: string;
+  /** @minimum 0 */
+  priceMinor: number;
+  description?: string;
+  productType?: string;
+  category?: string;
+  /**
+   * @minimum 0
+   * @maximum 100
+   */
+  discountPercent?: number;
+  promotionLabel?: string;
+  /** @minimum 0 */
+  discountedPriceMinor?: number;
+  isActive?: boolean;
+  image: Blob;
 };
 
 export type OrdersControllerListParams = {
@@ -454,6 +521,92 @@ export const productsControllerList = async (params?: ProductsControllerListPara
 
   const data: productsControllerListResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as productsControllerListResponse
+}
+
+
+
+/**
+ * @summary Создать товар каталога
+ */
+export type productsControllerCreateResponse201 = {
+  data: ProductResponseDto
+  status: 201
+}
+
+export type productsControllerCreateResponse400 = {
+  data: ApiValidationErrorBodyDto
+  status: 400
+}
+
+export type productsControllerCreateResponse401 = {
+  data: ApiAuthErrorBodyDto
+  status: 401
+}
+
+export type productsControllerCreateResponse409 = {
+  data: ApiBusinessConflictBodyDto
+  status: 409
+}
+
+export type productsControllerCreateResponseSuccess = (productsControllerCreateResponse201) & {
+  headers: Headers;
+};
+export type productsControllerCreateResponseError = (productsControllerCreateResponse400 | productsControllerCreateResponse401 | productsControllerCreateResponse409) & {
+  headers: Headers;
+};
+
+export type productsControllerCreateResponse = (productsControllerCreateResponseSuccess | productsControllerCreateResponseError)
+
+export const getProductsControllerCreateUrl = () => {
+
+
+
+
+  return `/products`
+}
+
+export const productsControllerCreate = async (productsControllerCreateBody: ProductsControllerCreateBody, options?: RequestInit): Promise<productsControllerCreateResponse> => {
+    const formData = new FormData();
+formData.append(`sku`, productsControllerCreateBody.sku)
+formData.append(`name`, productsControllerCreateBody.name)
+formData.append(`priceMinor`, productsControllerCreateBody.priceMinor.toString())
+if(productsControllerCreateBody.description !== undefined) {
+ formData.append(`description`, productsControllerCreateBody.description)
+ }
+if(productsControllerCreateBody.productType !== undefined) {
+ formData.append(`productType`, productsControllerCreateBody.productType)
+ }
+if(productsControllerCreateBody.category !== undefined) {
+ formData.append(`category`, productsControllerCreateBody.category)
+ }
+if(productsControllerCreateBody.discountPercent !== undefined) {
+ formData.append(`discountPercent`, productsControllerCreateBody.discountPercent.toString())
+ }
+if(productsControllerCreateBody.promotionLabel !== undefined) {
+ formData.append(`promotionLabel`, productsControllerCreateBody.promotionLabel)
+ }
+if(productsControllerCreateBody.discountedPriceMinor !== undefined) {
+ formData.append(`discountedPriceMinor`, productsControllerCreateBody.discountedPriceMinor.toString())
+ }
+if(productsControllerCreateBody.isActive !== undefined) {
+ formData.append(`isActive`, productsControllerCreateBody.isActive.toString())
+ }
+formData.append(`image`, productsControllerCreateBody.image)
+
+  const res = await fetch(getProductsControllerCreateUrl(),
+  {
+    ...options,
+    method: 'POST'
+    ,
+    body:
+      formData,
+  }
+)
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: productsControllerCreateResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as productsControllerCreateResponse
 }
 
 

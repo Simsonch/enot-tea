@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, RefreshCw, Loader2 } from 'lucide-react';
 import { readOwnerToken } from '@/src/shared/lib/auth-token';
 import { formatDate } from '@/src/shared/lib/format/format-date';
 import { formatPrice } from '@/src/shared/lib/format/format-price';
@@ -12,6 +13,12 @@ import {
   resendOrderNotification,
   runOrderAction,
 } from '@/src/shared/api/admin-api';
+import { Button } from '@/src/shared/ui/button';
+import { Input } from '@/src/shared/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/src/shared/ui/card';
+import { Label } from '@/src/shared/ui/label';
+import { Badge } from '@/src/shared/ui/badge';
+import { Alert, AlertDescription } from '@/src/shared/ui/alert';
 
 const actions: Array<{ id: OrderAction; label: string }> = [
   { id: 'invoice-sent', label: 'Счет выставлен' },
@@ -71,24 +78,45 @@ export function OrderDetail({ orderId }: { orderId: string }) {
 
   if (!token) {
     return (
-      <main className="stack">
-        <section className="card stack">
-          <h1>Требуется вход</h1>
-          <Link href="/">Вернуться к логину</Link>
-        </section>
+      <main className="flex items-center justify-center p-4">
+        <Card className="w-full max-w-sm">
+          <CardHeader>
+            <CardTitle>Требуется вход</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Link href="/">
+              <Button variant="link" className="p-0">
+                <ArrowLeft className="mr-2 size-4" />
+                Вернуться к логину
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
       </main>
     );
   }
 
   if (orderQuery.isLoading) {
-    return <main>Загрузка заказа...</main>;
+    return (
+      <main className="flex items-center justify-center p-4">
+        <Loader2 className="size-6 animate-spin" />
+        <span className="ml-2">Загрузка заказа...</span>
+      </main>
+    );
   }
 
   if (orderQuery.error) {
     return (
-      <main className="stack">
-        <p className="error">{orderQuery.error.message}</p>
-        <Link href="/">К списку заказов</Link>
+      <main className="flex flex-col gap-4 p-4">
+        <Alert variant="destructive">
+          <AlertDescription>{orderQuery.error.message}</AlertDescription>
+        </Alert>
+        <Link href="/">
+          <Button variant="link" className="p-0">
+            <ArrowLeft className="mr-2 size-4" />
+            К списку заказов
+          </Button>
+        </Link>
       </main>
     );
   }
@@ -99,94 +127,140 @@ export function OrderDetail({ orderId }: { orderId: string }) {
   }
 
   return (
-    <main className="stack">
-      <Link href="/">К списку заказов</Link>
-      <section className="card stack">
-        <div className="row">
-          <h1>Заказ #{order.id}</h1>
-          <span>{order.status}</span>
-          <span>{order.paymentStatus}</span>
-          <span>{order.fulfillmentStatus}</span>
-          {order.notification.status === 'FAILED' ? (
-            <span className="error">email failed: {order.notification.event}</span>
-          ) : (
-            <span className="muted">email: {order.notification.status}</span>
-          )}
-        </div>
-        <div className="grid grid-two">
-          <div className="stack">
-            <h2>Гость</h2>
-            <div>{order.customerFullName}</div>
-            <div>{order.customerEmail}</div>
-            <div>{order.customerPhone ?? 'Телефон не указан'}</div>
-            <div>{order.shippingAddress}</div>
-          </div>
-          <div className="stack">
-            <h2>Итоги</h2>
-            <div>{formatPrice(order.totalMinor)}</div>
-            <div>Создан: {formatDate(order.createdAt)}</div>
-            <div>Обновлен: {formatDate(order.updatedAt)}</div>
-          </div>
-        </div>
-      </section>
+    <main className="flex flex-col gap-6 p-4 md:p-6">
+      <Link href="/">
+        <Button variant="link" className="p-0">
+          <ArrowLeft className="mr-2 size-4" />
+          К списку заказов
+        </Button>
+      </Link>
 
-      <section className="card stack">
-        <h2>Позиции</h2>
-        {order.items.map((item) => (
-          <div className="row" key={item.id}>
-            <strong>{item.productId}</strong>
-            <span>{item.quantity} шт.</span>
-            <span>{formatPrice(item.totalMinor)}</span>
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle>Заказ #{order.id}</CardTitle>
+            <Badge>{order.status}</Badge>
+            <Badge variant="secondary">{order.paymentStatus}</Badge>
+            <Badge variant="outline">{order.fulfillmentStatus}</Badge>
+            {order.notification.status === 'FAILED' ? (
+              <Badge variant="destructive">email failed: {order.notification.event}</Badge>
+            ) : (
+              <Badge variant="outline" className="text-muted-foreground">
+                email: {order.notification.status}
+              </Badge>
+            )}
           </div>
-        ))}
-      </section>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="flex flex-col gap-4">
+              <h2 className="text-lg font-semibold">Гость</h2>
+              <div>{order.customerFullName}</div>
+              <div className="text-sm text-muted-foreground">{order.customerEmail}</div>
+              <div className="text-sm text-muted-foreground">
+                {order.customerPhone ?? 'Телефон не указан'}
+              </div>
+              <div className="text-sm text-muted-foreground">{order.shippingAddress}</div>
+            </div>
+            <div className="flex flex-col gap-4">
+              <h2 className="text-lg font-semibold">Итоги</h2>
+              <div className="text-lg font-medium">{formatPrice(order.totalMinor)}</div>
+              <div className="text-sm text-muted-foreground">Создан: {formatDate(order.createdAt)}</div>
+              <div className="text-sm text-muted-foreground">Обновлен: {formatDate(order.updatedAt)}</div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      <section className="card stack">
-        <h2>Ручные действия</h2>
-        <label className="stack">
-          Комментарий
-          <input value={comment} onChange={(event) => setComment(event.target.value)} maxLength={500} />
-        </label>
-        <div className="row">
-          {actions.map((action) => (
-            <form key={action.id} onSubmit={(event) => handleAction(event, action.id)}>
-              <button type="submit" disabled={actionMutation.isPending}>
-                {action.label}
-              </button>
-            </form>
-          ))}
-          <button
-            type="button"
-            disabled={resendMutation.isPending}
-            onClick={() => {
-              setMessage(null);
-              resendMutation.mutate();
-            }}
-          >
-            Переотправить уведомление
-          </button>
-        </div>
-        {message ? (
-          <p className={message.includes('Не удалось') ? 'error' : 'success'}>{message}</p>
-        ) : null}
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle>Позиции</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-2">
+            {order.items.map((item) => (
+              <div key={item.id} className="flex items-center justify-between">
+                <strong className="text-sm">{item.productId}</strong>
+                <span className="text-sm text-muted-foreground">{item.quantity} шт.</span>
+                <span className="text-sm">{formatPrice(item.totalMinor)}</span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
-      <section className="card stack">
-        <h2>История статусов</h2>
-        {order.statusHistory.map((entry) => (
-          <article className="stack" key={entry.id}>
-            <strong>{entry.statusDimension}</strong>
-            <span className="muted">{formatDate(entry.createdAt)}</span>
-            <span>
-              {entry.fromStatus ?? entry.fromPaymentStatus ?? entry.fromFulfillmentStatus ?? 'START'}
-              {' -> '}
-              {entry.toStatus ?? entry.toPaymentStatus ?? entry.toFulfillmentStatus}
-            </span>
-            {entry.changedById ? <span>Владелец: {entry.changedById}</span> : null}
-            {entry.comment ? <span>{entry.comment}</span> : null}
-          </article>
-        ))}
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle>Ручные действия</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Label className="text-sm font-medium">Комментарий</Label>
+            <Input
+              value={comment}
+              onChange={(event) => setComment(event.target.value)}
+              maxLength={500}
+            />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {actions.map((action) => (
+              <form key={action.id} onSubmit={(event) => handleAction(event, action.id)}>
+                <Button
+                  type="submit"
+                  variant={action.id === 'cancel' ? 'destructive' : 'default'}
+                  disabled={actionMutation.isPending}
+                  size="sm"
+                >
+                  {action.label}
+                </Button>
+              </form>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              disabled={resendMutation.isPending}
+              onClick={() => {
+                setMessage(null);
+                resendMutation.mutate();
+              }}
+              size="sm"
+            >
+              <RefreshCw className="mr-2 size-3" />
+              Переотправить уведомление
+            </Button>
+          </div>
+          {message ? (
+            <Alert variant={message.includes('Не удалось') ? 'destructive' : 'default'}>
+              <AlertDescription>{message}</AlertDescription>
+            </Alert>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>История статусов</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-4">
+            {order.statusHistory.map((entry) => (
+              <div key={entry.id} className="flex flex-col gap-1 border-b pb-3 last:border-0">
+                <strong className="text-sm">{entry.statusDimension}</strong>
+                <span className="text-xs text-muted-foreground">{formatDate(entry.createdAt)}</span>
+                <span className="text-sm">
+                  {entry.fromStatus ?? entry.fromPaymentStatus ?? entry.fromFulfillmentStatus ?? 'START'}
+                  {' -> '}
+                  {entry.toStatus ?? entry.toPaymentStatus ?? entry.toFulfillmentStatus}
+                </span>
+                {entry.changedById ? (
+                  <span className="text-xs text-muted-foreground">Владелец: {entry.changedById}</span>
+                ) : null}
+                {entry.comment ? <span className="text-sm">{entry.comment}</span> : null}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </main>
   );
 }

@@ -78,6 +78,13 @@ model Product {
   name        String
   description String?
   priceMinor  Int
+  productType String?
+  category    String?
+  discountPercent     Int?
+  promotionLabel      String?
+  discountedPriceMinor Int?
+  imagePath           String?
+  imageUrl            String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

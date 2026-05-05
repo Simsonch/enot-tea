@@ -26,6 +26,7 @@ import {
   ApiUnauthorizedResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiAuthErrorBodyDto,
   ApiBusinessConflictBodyDto,
@@ -43,6 +44,7 @@ import {
   ManualOrderLifecycleTransitionDto,
   UpdateOrderStatusDto,
 } from './orders.dto.js';
+import { appConfig } from '../common/app.config.js';
 
 @Controller('orders')
 @ApiTags('orders')
@@ -83,6 +85,12 @@ export class OrdersController {
   }
 
   @Post()
+  @Throttle({
+    default: {
+      limit: appConfig.throttling.orderCreate.limit,
+      ttl: appConfig.throttling.orderCreate.ttlMs,
+    },
+  })
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Создать гостевой заказ и зарезервировать склад',

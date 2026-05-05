@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { PrismaModule } from './prisma/prisma.module.js';
@@ -11,17 +13,33 @@ import { OrdersService } from './orders/orders.service.js';
 import { AuthModule } from './auth/auth.module.js';
 import { MailerService } from './notifications/mailer.service.js';
 import { OrderNotificationsService } from './notifications/order-notifications.service.js';
+import { FileStorageService } from './storage/file-storage.service.js';
+import { appConfig } from './common/app.config.js';
 
 @Module({
-  imports: [PrismaModule, AuthModule],
+  imports: [
+    PrismaModule,
+    AuthModule,
+    ThrottlerModule.forRoot([
+      {
+        ttl: appConfig.throttling.global.ttlMs,
+        limit: appConfig.throttling.global.limit,
+      },
+    ]),
+  ],
   controllers: [AppController, HealthController, ProductsController, OrdersController],
   providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
     AppService,
     HealthService,
     ProductsService,
     OrdersService,
     MailerService,
     OrderNotificationsService,
+    FileStorageService,
   ],
 })
 export class AppModule {}

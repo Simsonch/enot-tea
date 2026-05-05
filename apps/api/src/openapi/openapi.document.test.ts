@@ -16,6 +16,9 @@ type OpenApiSchema = {
       nullable?: boolean;
       description?: string;
       minItems?: number;
+      minimum?: number;
+      maximum?: number;
+      type?: string;
     }
   >;
   required?: string[];
@@ -38,6 +41,18 @@ type OpenApiOperation = {
   summary?: string;
   description?: string;
   security?: Array<Record<string, unknown>>;
+  requestBody?: {
+    content?: Record<
+      string,
+      {
+        schema?: {
+          type?: string;
+          required?: string[];
+          properties?: Record<string, { type?: string; format?: string }>;
+        };
+      }
+    >;
+  };
 };
 
 test('OpenAPI document includes expected paths and order operations', async () => {
@@ -58,6 +73,16 @@ test('OpenAPI document includes expected paths and order operations', async () =
       (parameter) => parameter.name,
     );
     assert.deepEqual(productQueryParams.sort(), ['isActive', 'limit', 'offset']);
+    const productsPost = paths['/products']?.post as OpenApiOperation | undefined;
+    assert.ok(productsPost, 'product create is documented');
+    assert.equal(productsPost?.summary, 'Создать товар каталога');
+    const multipartSchema = productsPost?.requestBody?.content?.['multipart/form-data']?.schema;
+    assert.equal(multipartSchema?.type, 'object');
+    assert.ok(multipartSchema?.required?.includes('image'), 'image is required for product create');
+    const productSchema = (document.components?.schemas?.ProductListItemDto ?? {}) as OpenApiSchema;
+    assert.ok(productSchema.properties?.imageUrl, 'product image url is documented');
+    assert.equal(productSchema.properties?.discountPercent?.nullable, true);
+    assert.equal(productSchema.properties?.category?.nullable, true);
     assert.ok(paths['/orders']?.post, 'order create is documented');
     const authLogin = paths['/auth/login']?.post as OpenApiOperation | undefined;
     assert.ok(authLogin, 'owner login is documented');

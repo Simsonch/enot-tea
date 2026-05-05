@@ -18,7 +18,7 @@ export class HealthDbResponseDto {
   db!: string;
 }
 
-export class ProductListItemDto {
+class ProductBaseDto {
   @ApiProperty({ type: 'string' })
   id!: string;
 
@@ -34,9 +34,31 @@ export class ProductListItemDto {
   @ApiProperty({ type: 'number', example: 1000, description: 'Цена в минорных единицах' })
   priceMinor!: number;
 
+  @ApiPropertyOptional({ nullable: true, type: 'string' })
+  productType?: string | null;
+
+  @ApiPropertyOptional({ nullable: true, type: 'string' })
+  category?: string | null;
+
+  @ApiPropertyOptional({ nullable: true, type: 'number', minimum: 0, maximum: 100 })
+  discountPercent?: number | null;
+
+  @ApiPropertyOptional({ nullable: true, type: 'string' })
+  promotionLabel?: string | null;
+
+  @ApiPropertyOptional({ nullable: true, type: 'number', description: 'Цена со скидкой в минорных единицах' })
+  discountedPriceMinor?: number | null;
+
+  @ApiProperty({ type: 'string' })
+  imageUrl!: string;
+
   @ApiProperty({ type: 'boolean' })
   isActive!: boolean;
 }
+
+export class ProductListItemDto extends ProductBaseDto {}
+
+export class ProductResponseDto extends ProductBaseDto {}
 
 export class ProductPaginationDto {
   @ApiProperty({ type: 'number' })

@@ -63,6 +63,7 @@
   - `DATABASE_URL` для PostgreSQL подключения
   - `PORT` для HTTP сервера NestJS
   - `NODE_ENV` для режима окружения
+  - Сервис хранения изображений использует локальный путь и базовый URL. При необходимости переопределите значения по умолчанию через `PRODUCT_IMAGE_STORAGE_DIR` и `PRODUCT_IMAGE_BASE_URL`.
 
 ### Базовые команды
 - `pnpm --filter "@enot-tea/api" typecheck`
@@ -83,6 +84,7 @@
 - `GET /` -> `Служба API запущена`
 - `GET /health/db` -> `{"status":"ok","db":"up"}`
 - `GET /products?limit=20&offset=0&isActive=true` -> `200` и список товаров с пагинацией
+- `POST /products` (multipart/form-data с полями и файлом `image`) -> `201` и созданный товар
 - `POST /orders` -> `201` и созданный заказ с позициями
 - `GET /orders/:id` -> `200` и заказ с `items` + `statusHistory`
 - `PATCH /orders/:id/cancel` -> `200` и заказ со статусом `CANCELLED`

@@ -1,4 +1,4 @@
-import Link from 'next/link';
+iВыберите ваш чай и добавьте его в корзину.mport Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, buttonVariants } from '@/src/shared/ui';
 
 export function ThankYouScreen({ orderId }: { orderId: string }) {

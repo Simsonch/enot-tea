@@ -41,7 +41,6 @@ export function HeaderNav() {
                   alt="ЧаЕнот"
                   className="h-11 w-auto shrink-0 object-contain sm:h-12"
                   height={584}
-                  priority
                   src="/logo.svg"
                   width={426}
                 />

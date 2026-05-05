@@ -1,20 +1,11 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import Link from 'next/link';
 import { ProductCard } from '@/src/entities/product';
 import { AddToCartButton } from '@/src/features/add-to-cart';
 import { fetchProducts } from '@/src/shared/api';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Skeleton,
-  buttonVariants,
-} from '@/src/shared/ui';
-import { cn } from '@/src/shared/lib/utils';
+import { Card, CardDescription, CardHeader, CardTitle, Skeleton } from '@/src/shared/ui';
+import { CatalogHeader } from './catalog-header';
 
 export function CatalogWidget() {
   const { data, isLoading, isError } = useQuery({
@@ -53,27 +44,7 @@ export function CatalogWidget() {
 
   return (
     <section className="space-y-4">
-      <Card className="storefront-glass-panel border text-white shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-brand-heading">Каталог</CardTitle>
-          <CardDescription className="text-brand-muted">
-            Выберите ваш чай и добавьте его в корзину.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link
-            className={buttonVariants({
-              variant: 'outline',
-              className: cn(
-                'border-brand-accent text-brand-accent-foreground hover:bg-brand-accent/20 hover:text-brand-accent-foreground',
-              ),
-            })}
-            href="/cart"
-          >
-            Перейти в корзину
-          </Link>
-        </CardContent>
-      </Card>
+      <CatalogHeader />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {data.map((product) => (
           <ProductCard key={product.id} product={product} actions={<AddToCartButton product={product} />} />

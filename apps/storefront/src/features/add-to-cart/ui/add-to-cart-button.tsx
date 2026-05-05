@@ -9,10 +9,10 @@ export function AddToCartButton({ product }: { product: Product }) {
 
   return (
     <Button
-      className="bg-brand-primary text-brand-primary-foreground hover:bg-brand-primary/90"
       onClick={() => addItem(product)}
       size="sm"
       type="button"
+      variant="brand"
     >
       Добавить в корзину
     </Button>

@@ -122,9 +122,9 @@ export function CheckoutWidget() {
           value={form.shippingAddress}
         />
         <Button
-          className="bg-brand-primary text-brand-primary-foreground hover:bg-brand-primary/90"
           disabled={submitting}
           type="submit"
+          variant="brand"
         >
           {submitting ? 'Отправка...' : 'Оформить заказ'}
         </Button>

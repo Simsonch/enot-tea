@@ -2,28 +2,47 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { ShoppingCart } from 'lucide-react';
 import { getCartTotalQuantity, useCartStore } from '@/src/entities/cart';
 import { Badge, Card, CardHeader, CardTitle, buttonVariants } from '@/src/shared/ui';
 import { cn } from '@/src/shared/lib/utils';
+import { useIsScrolled } from '@/src/shared/lib/use-is-scrolled';
 
 const headerNavButtonClass =
   'storefront-glass-nav-btn focus-visible:ring-0 focus-visible:ring-offset-0';
 
 export function HeaderNav() {
   const itemCount = useCartStore((state) => getCartTotalQuantity(state.items));
-  const [isScrolled, setIsScrolled] = useState(false);
+  const isScrolled = useIsScrolled();
+  const headerRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    const onScroll = () => setIsScrolled(window.scrollY > 8);
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    function updateHeaderBottom() {
+      const current = headerRef.current;
+      if (!current) return;
+      const computedTop = parseFloat(getComputedStyle(current).top) || 0;
+      document.documentElement.style.setProperty(
+        '--header-bottom',
+        `${current.offsetHeight + computedTop}px`,
+      );
+    }
+
+    updateHeaderBottom();
+    const observer = new ResizeObserver(updateHeaderBottom);
+    const initial = headerRef.current;
+    if (initial) observer.observe(initial);
+    window.addEventListener('resize', updateHeaderBottom);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateHeaderBottom);
+      document.documentElement.style.removeProperty('--header-bottom');
+    };
   }, []);
 
   return (
-    <header className="sticky top-3 z-30">
+    <header ref={headerRef} className="sticky top-3 z-30">
       <Card
         className={cn(
           'border text-white shadow-sm transition-colors',

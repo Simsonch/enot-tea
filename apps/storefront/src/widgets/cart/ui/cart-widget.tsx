@@ -5,7 +5,6 @@ import { CartItemRow, getCartTotalMinor, useCartStore } from '@/src/entities/car
 import { CartItemActions } from '@/src/features/update-cart-item';
 import { formatPrice } from '@/src/shared/lib/format';
 import { Card, CardContent, CardHeader, CardTitle, buttonVariants } from '@/src/shared/ui';
-import { cn } from '@/src/shared/lib/utils';
 
 export function CartWidget() {
   const items = useCartStore((state) => state.items);
@@ -19,10 +18,7 @@ export function CartWidget() {
         <CardContent>
           <Link
             className={buttonVariants({
-              variant: 'outline',
-              className: cn(
-                'border-brand-accent text-brand-accent-foreground hover:bg-brand-accent/20 hover:text-brand-accent-foreground',
-              ),
+              variant: 'brand-outline',
             })}
             href="/"
           >
@@ -56,8 +52,7 @@ export function CartWidget() {
           <p className="text-base font-semibold text-brand-heading">Общая стоимость: {formatPrice(totalMinor)}</p>
           <Link
             className={buttonVariants({
-              variant: 'default',
-              className: 'bg-brand-primary text-brand-primary-foreground hover:bg-brand-primary/90',
+              variant: 'brand',
             })}
             href="/checkout"
           >

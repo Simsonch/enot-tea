@@ -22,6 +22,12 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-primary-foreground: var(--brand-primary-foreground);
+  --color-brand-accent: var(--brand-accent);
+  --color-brand-accent-foreground: var(--brand-accent-foreground);
+  --color-brand-heading: var(--brand-heading);
+  --color-brand-muted: var(--brand-muted);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -48,6 +54,25 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
+  --storefront-bg-image: url("/background.png");
+  /* Warm cream / straw aligned with hero foliage — readable on dark glass header */
+  --storefront-brand-foreground: oklch(0.93 0.035 95);
+  --storefront-brand-foreground-muted: oklch(0.82 0.025 95);
+
+  /* Storefront brand DS (forest + warmth; headings alias hero creams) */
+  --brand-heading: var(--storefront-brand-foreground);
+  --brand-muted: var(--storefront-brand-foreground-muted);
+  --brand-primary: oklch(0.34 0.055 148);
+  --brand-primary-foreground: oklch(0.97 0.018 95);
+  --brand-accent: oklch(0.76 0.13 78);
+  --brand-accent-foreground: oklch(0.22 0.035 78);
+  --brand-glass-bg: rgb(0 0 0 / 0.45);
+  --brand-glass-border: rgb(255 255 255 / 0.22);
+  --brand-nav-btn-bg: rgb(255 255 255 / 0.2);
+  --brand-nav-btn-border: rgb(255 255 255 / 0.45);
+  --brand-nav-btn-hover-bg: rgb(255 255 255 / 0.28);
+  --brand-nav-btn-hover-border: rgb(255 255 255 / 0.6);
+  --brand-focus-ring: rgb(255 255 255 / 0.5);
 }
 
 .dark {
@@ -80,8 +105,95 @@
   body {
     margin: 0;
     font-family: Inter, Arial, sans-serif;
-    background: #f8f8f8;
+    background: var(--background);
     color: var(--foreground);
+  }
+}
+
+.storefront-body {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  overflow-x: clip;
+}
+
+.storefront-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    linear-gradient(180deg, rgba(6, 14, 9, 0.28) 0%, rgba(6, 14, 9, 0.82) 74%),
+    var(--storefront-bg-image, linear-gradient(180deg, #20351f 0%, #111d12 45%, #070d08 100%));
+  background-size: cover;
+  background-position: 58% top;
+  background-repeat: no-repeat;
+}
+
+.storefront-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(6, 14, 9, 0.06) 0%, rgba(6, 14, 9, 0.4) 56%, rgba(6, 14, 9, 0.7) 100%);
+}
+
+.storefront-shell {
+  position: relative;
+  z-index: 2;
+  min-height: 100vh;
+  width: 100%;
+  padding: 1rem 0.75rem 1.25rem;
+}
+
+.storefront-content {
+  margin-inline: auto;
+  display: grid;
+  width: 100%;
+  max-width: 72rem;
+  gap: 0.875rem;
+}
+
+@media (min-width: 640px) {
+  .storefront-shell {
+    padding: 1.25rem 1rem 1.5rem;
+  }
+
+  .storefront-bg {
+    background-position: center top;
+  }
+}
+
+@media (min-width: 768px) {
+  .storefront-shell {
+    padding: 1.5rem 1.5rem 2rem;
+  }
+
+  .storefront-content {
+    gap: 1rem;
+  }
+
+  .storefront-bg {
+    background-position: center 20%;
+  }
+}
+
+@media (min-width: 1024px) {
+  .storefront-shell {
+    padding: 2rem 2rem 2.25rem;
+  }
+
+  .storefront-bg {
+    background-position: center 24%;
+  }
+}
+
+@media (min-width: 1280px) {
+  .storefront-shell {
+    padding: 2rem 2.25rem 2.5rem;
+  }
+
+  .storefront-bg {
+    background-position: center 28%;
   }
 }
 
@@ -96,20 +208,37 @@ textarea {
   font: inherit;
 }
 
-main {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 24px 16px 40px;
-}
+@layer utilities {
+  /* Semi-transparent panels on hero photography */
+  .storefront-glass-panel {
+    border-color: var(--brand-glass-border);
+    background-color: var(--brand-glass-bg);
+    color: var(--brand-heading);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
 
-.card {
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  background: #fff;
-  padding: 16px;
-}
+  /* Header nav controls on glass */
+  .storefront-glass-nav-btn {
+    border-color: var(--brand-nav-btn-border);
+    background-color: var(--brand-nav-btn-bg);
+    color: white;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
 
-.stack {
-  display: grid;
-  gap: 12px;
+  .storefront-glass-nav-btn:hover {
+    background-color: var(--brand-nav-btn-hover-bg);
+    border-color: var(--brand-nav-btn-hover-border);
+  }
+
+  .storefront-glass-nav-btn:focus-visible {
+    outline: none;
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.12),
+      0 0 0 2px var(--brand-glass-bg),
+      0 0 0 4px var(--brand-focus-ring);
+  }
 }

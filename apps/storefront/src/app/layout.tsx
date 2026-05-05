@@ -12,11 +12,15 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body>
+      <body className="storefront-body text-foreground antialiased">
         <QueryProvider>
-          <main className="stack">
-            <HeaderNav />
-            {children}
+          <div className="storefront-bg" aria-hidden />
+          <div className="storefront-overlay" aria-hidden />
+          <main className="storefront-shell">
+            <div className="storefront-content">
+              <HeaderNav />
+              {children}
+            </div>
           </main>
         </QueryProvider>
       </body>

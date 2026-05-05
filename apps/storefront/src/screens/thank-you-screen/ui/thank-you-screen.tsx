@@ -1,13 +1,20 @@
 import Link from 'next/link';
+import { Card, CardContent, CardHeader, CardTitle, buttonVariants } from '@/src/shared/ui';
 
 export function ThankYouScreen({ orderId }: { orderId: string }) {
   return (
-    <section className="card stack">
-      <h2 style={{ margin: 0 }}>Thank you for your order</h2>
-      <p style={{ margin: 0 }}>
-        Order id: <strong>{orderId}</strong>
-      </p>
-      <Link href="/">Back to catalog</Link>
-    </section>
+    <Card>
+      <CardHeader>
+        <CardTitle>Спасибо за ваш заказ</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          ID заказа: <strong className="text-foreground">{orderId}</strong>
+        </p>
+        <Link className={buttonVariants({ variant: 'outline' })} href="/">
+          Перейти в каталог
+        </Link>
+      </CardContent>
+    </Card>
   );
 }

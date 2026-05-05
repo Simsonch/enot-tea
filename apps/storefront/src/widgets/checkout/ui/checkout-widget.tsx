@@ -5,6 +5,16 @@ import { useRouter } from 'next/navigation';
 import { getCartTotalMinor, useCartStore } from '@/src/entities/cart';
 import { CheckoutError, submitOrder } from '@/src/features/checkout-order';
 import { formatPrice } from '@/src/shared/lib/format';
+import {
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Input,
+  Label,
+} from '@/src/shared/ui';
 
 type FormState = {
   customerFullName: string;
@@ -31,10 +41,12 @@ export function CheckoutWidget() {
 
   if (items.length === 0) {
     return (
-      <section className="card">
-        <h2>Checkout</h2>
-        <p>Your cart is empty.</p>
-      </section>
+      <Card className="storefront-glass-panel border text-white shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-brand-heading">Оформление заказа</CardTitle>
+          <CardDescription className="text-brand-muted">Ваша корзина пуста.</CardDescription>
+        </CardHeader>
+      </Card>
     );
   }
 
@@ -67,19 +79,26 @@ export function CheckoutWidget() {
   const fieldErrors = error?.kind === 'validation' ? error.fields : {};
 
   return (
-    <section className="card stack">
-      <h2 style={{ margin: 0 }}>Checkout</h2>
-      <p style={{ margin: 0 }}>Total: {formatPrice(totalMinor)}</p>
-      {error && <p style={{ color: '#c22', margin: 0 }}>{error.message}</p>}
-      <form className="stack" onSubmit={onSubmit}>
+    <Card className="storefront-glass-panel border text-white shadow-sm">
+      <CardHeader>
+        <CardTitle className="text-brand-heading">Оформление заказа</CardTitle>
+        <CardDescription className="text-brand-muted">
+          Общая стоимость: {formatPrice(totalMinor)}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {error && <p className="text-sm text-destructive">{error.message}</p>}
+        <form className="grid gap-4" onSubmit={onSubmit}>
         <Field
+          id="customer-full-name"
           error={fieldErrors.customerFullName?.[0]}
-          label="Full name"
+          label="Полное имя"
           onChange={(value) => setForm((prev) => ({ ...prev, customerFullName: value }))}
           required
           value={form.customerFullName}
         />
         <Field
+          id="customer-email"
           error={fieldErrors.customerEmail?.[0]}
           label="Email"
           onChange={(value) => setForm((prev) => ({ ...prev, customerEmail: value }))}
@@ -88,27 +107,35 @@ export function CheckoutWidget() {
           value={form.customerEmail}
         />
         <Field
+          id="customer-phone"
           error={fieldErrors.customerPhone?.[0]}
-          label="Phone (optional)"
+          label="Телефон (необязательно)"
           onChange={(value) => setForm((prev) => ({ ...prev, customerPhone: value }))}
           value={form.customerPhone}
         />
         <Field
+          id="shipping-address"
           error={fieldErrors.shippingAddress?.[0]}
-          label="Shipping address"
+          label="Адрес доставки"
           onChange={(value) => setForm((prev) => ({ ...prev, shippingAddress: value }))}
           required
           value={form.shippingAddress}
         />
-        <button disabled={submitting} type="submit">
-          {submitting ? 'Submitting...' : 'Submit order'}
-        </button>
-      </form>
-    </section>
+        <Button
+          className="bg-brand-primary text-brand-primary-foreground hover:bg-brand-primary/90"
+          disabled={submitting}
+          type="submit"
+        >
+          {submitting ? 'Отправка...' : 'Оформить заказ'}
+        </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 
 function Field({
+  id,
   label,
   value,
   onChange,
@@ -116,6 +143,7 @@ function Field({
   type = 'text',
   required = false,
 }: {
+  id: string;
   label: string;
   value: string;
   onChange: (value: string) => void;
@@ -124,16 +152,16 @@ function Field({
   required?: boolean;
 }) {
   return (
-    <label className="stack" style={{ gap: 6 }}>
-      <span>{label}</span>
-      <input
+    <div className="grid gap-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <Input
+        id={id}
         onChange={(event) => onChange(event.target.value)}
         required={required}
-        style={{ padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
         type={type}
         value={value}
       />
-      {error && <small style={{ color: '#c22' }}>{error}</small>}
-    </label>
+      {error && <small className="text-xs text-destructive">{error}</small>}
+    </div>
   );
 }

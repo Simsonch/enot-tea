@@ -13,6 +13,9 @@ import {
   ordersControllerList,
   ordersControllerMarkInvoiceSent,
   ordersControllerResendNotification,
+  ProductResponseDto,
+  ProductsControllerCreateBody,
+  productsControllerCreate,
 } from '@enot-tea/api-client';
 
 type ApiResponse = {
@@ -107,4 +110,9 @@ export async function runOrderAction(
 export async function resendOrderNotification(token: string, orderId: string) {
   const response = await ordersControllerResendNotification(orderId, authOptions(token));
   return ensureSuccess<OrderResponseDto>(response, 200);
+}
+
+export async function createProduct(token: string, payload: ProductsControllerCreateBody) {
+  const response = await productsControllerCreate(payload, authOptions(token));
+  return ensureSuccess<ProductResponseDto>(response, 201);
 }

@@ -133,10 +133,15 @@ export function AdminDashboard() {
             Owner-only ручной pipeline: счет, оплата, доставка, получение, отмена.
           </p>
         </div>
-        <Button variant="outline" onClick={handleLogout}>
-          <LogOut className="mr-2 size-4" />
-          Выйти
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline">
+            <Link href="/products/new">Добавить товар</Link>
+          </Button>
+          <Button variant="outline" onClick={handleLogout}>
+            <LogOut className="mr-2 size-4" />
+            Выйти
+          </Button>
+        </div>
       </div>
 
       <Card>
